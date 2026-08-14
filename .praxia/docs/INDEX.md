@@ -7,6 +7,7 @@
 ## Plans
 
 ## Specs
+- [260814_alphabet-api-surface](specs/260814_alphabet-api-surface.md) — Full library shape: types, signatures, semantics, error hierarchy, shipped declarations, registry contract, and the test matrix that makes the invariants enforceable
 - [260814_alphabet-contract](specs/260814_alphabet-contract.md) — Census of 7 declared AA alphabets across 29 sites in 5 repos; the contract lifted from asr; asset storage + entry-point plugin design; six-way acquisition verdicts incl. biotite
 
 ## Actuation Surfaces
