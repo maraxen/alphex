@@ -58,5 +58,10 @@ ignore = [
   "CPY001",  # no copyright headers anywhere in this ecosystem
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# CLI scripts print to stdout by design, are not an importable package, and their
+# report-building main() is a flat sequence rather than genuinely branchy.
+"scripts/*.py" = ["T201", "INP001", "C901"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -12,3 +12,6 @@ wheels/
 # praxia local caches -- never commit (analyzer db is machine-local, churns constantly)
 .praxia/cache/
 .fastembed_cache/
+
+# census output: regenerable via scripts/census_alphabets.py
+outputs/

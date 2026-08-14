@@ -272,7 +272,58 @@ The `PROXIDE_ORDER` provenance gap closes because registration requires a declar
 the thing that variable name was standing in for. `jtt_model.py`'s sha256 + parity-test
 discipline stays where it already works rather than being generalised speculatively.
 
-**D2 — asr migrates first, then reassess.** asr is both the source of the contract (F5) and
+**D4 — (2026-08-14, supersedes D2's sequencing) Phase 0 is a dev-dependency-only conformance
+pass across all five repos, before any runtime migration.**
+
+Ship `errors.py`, `alphabet.py` and `known.py` and nothing else. Every repo adds the library to
+its **dev group** — never to `dependencies` — plus one test asserting its local constants equal
+the corresponding declaration. No import in any `src/`, so no runtime edge exists and the
+ecosystem partition is unaffected: a dev-only test dependency is not a coupling edge in any sense
+the partition constrains.
+
+Why this dominates "asr first":
+
+- **It retires the eighth-site risk immediately** rather than bounding its duration. D2 accepted
+  that this library would be an extra declaration site until asr migrated. A duplicate that is
+  *mechanically checked against its source* is harmless; the risk was never duplication, it was
+  *unchecked* duplication.
+- **It covers five repos at once** instead of one, at lower risk than migrating one.
+- **It would have caught architecture-review finding #1 mechanically** — my `known.py` row
+  declaring an AF-ordered space under a ProteinMPNN name. T4 as originally written asserted a
+  hardcoded string against itself, which is a tautology, not a conformance check.
+- **It reopens proteinsmc.** D2 excluded it while the partition is in flight, but the partition's
+  concern is heavyweight inbound coupling (jax / proxide / Rust / maturin) and this edge carries
+  none of it — numpy only, no transitive closure, no build step, and in Phase 0 not even a
+  runtime import. Excluding it would leave the one repo where a bug actually shipped as the last
+  one fixed. **Phase 0 includes proteinsmc.**
+
+**D5 — (2026-08-14) `registry.py` is cut from v0.1.**
+
+Reasons, in descending force:
+
+1. **It inverts the dependency at runtime.** `registry.assets()` would resolve
+   `asr.blosum_utils:BLOSUM62_ASSET`, importing `asr.blosum_utils`, which imports `jax.numpy` at
+   line 1. The numpy-only library would become, on first `assets()` call, a jax-importing loader
+   of its own consumers — runtime graph `asr → lib → asr`. T15 ("importing the package does not
+   import jax") would still pass, because it tests the easy half.
+2. **By this spec's own admission it buys nothing.** §6 stated the expected steady state is that
+   *no consumer registers an alphabet at all*, and the asset group had exactly one expected
+   registrant with three objects, all reachable by direct import. Entry points buy
+   enumeration-without-knowing-names; with one owner and six repos, nobody needs to enumerate.
+3. **It violated `CLAUDE.md`'s categorical instruction** — "no entry points" while the name is a
+   placeholder. The decoupled group namespace mitigated the rename hazard specifically, but the
+   instruction was not conditional.
+4. **Entry points require an installed distribution**, and proteinsmc currently cannot be
+   imported normally (unresolvable dependency; `uv run --no-project` workaround). A discovery
+   mechanism keyed on installed metadata is fragile in exactly this ecosystem.
+
+Consequence: the `Asset` layer loses its delivery mechanism, so **`asset.py` is also deferred**
+past v0.1. D1 said own the contract and ship no data; with no registry there is no consumer for
+the contract yet, and the honest move is to add it when a second registrant appears — at which
+point the distribution will have its real name and the group-name question resolves itself.
+
+**D2 — asr migrates first, then reassess.** *(Sequencing superseded by D4; the reasoning below
+still governs Phase 1, the runtime migration.)* asr is both the source of the contract (F5) and
 where 7 of the 29 declaration sites live, including all four sentinel conventions and the only
 instance of ordering 7. It is the hardest case, so it is the right proving ground: a contract
 that cannot express asr's needs is wrong, and better to learn that against one repo than four.
@@ -524,7 +575,62 @@ caught.
 first-party declaration inexpressible.* Under (c), `restypes_with_x_and_gap` and the HHblits
 maps force degenerate and nonstandard symbols to be reconsidered.
 
-**Required before §8.6 is refrozen:** re-run the census with an **AST pass** over dict and list
+### C5.1 — AST census run, 2026-08-14. Authoritative counts.
+
+`scripts/census_alphabets.py`, output at `outputs/census.json`. Supersedes §1's regex figures.
+
+| | regex census (§1) | AST census |
+|---|---|---|
+| distinct orders | 7 | **10** |
+| declaration sites | 29 | **30** |
+| sites with degenerate `B/Z/J` | 0 | **1** |
+| sites with nonstandard `U/O` | 0 | **1** |
+| k=3 codon tables | 1 | **2** |
+
+Both the degenerate and the nonstandard site are `proxide/chem/residues.py:697`
+(`HHBLITS_AA_TO_ID`). The AST pass also found three orders the regex missed entirely —
+`ID_TO_HHBLITS_AA` (`:728`, dict-*values*, MPNN-ordered q=22 with `X@20, gap@21`),
+`restype_1to3` (`:653`, dict-keys), and `iqtree_runner.py`'s DNA declarations — and it dropped
+the docstring false positive at `ddg_stability.py:77`.
+
+Writing the script surfaced two of its own false-positive classes, both of which had corrupted
+the first run and both of which matter because these counts gate a design decision:
+
+- **Chemical element symbols read as alphabets.** `CNOS`, `CNOSP`, `HCNOSP`, `COHNSP` (proxide's
+  van der Waals tables) are single-character key sets drawn from the same space as residues, and
+  they flagged as NONSTANDARD because oxygen collides with pyrrolysine (`O`). That inflated the
+  nonstandard count from 1 to **8**. Fixed with a floor of 15 canonical residues, or
+  nucleotide-only.
+- **3-letter residue names read as codons.** `chi_angles_atoms`, `residue_atoms` and three others
+  are keyed by `ALA`/`ARG`, not by codons — 5 false positives. Fixed by requiring codon keys to
+  be drawn from `ACGT(U)`.
+
+**Still a lower bound.** The AST pass walks *literals*, so a computed declaration remains
+invisible — notably `proxide/chem/residues.py:753`,
+`restypes_with_x_and_gap = [*restypes, "X", "-"]`, an AF-ordered q=22 alphabet (`X@20, gap@21`)
+that the script does not report because the list holds a starred expression. Evaluating it would
+require importing a jax/Rust-backed package, which a numpy-only tool cannot do. Read "0 from this
+script" as "none found by literal analysis", never as "none exist" — that inference is what
+invalidated two refusals in the first place.
+
+### C5.2 — Re-adjudication under the amended rule
+
+Degenerate and nonstandard symbols sit at **1 instance each**, so criterion (a) (≥2) still
+refuses them and criterion (b) (a shipped bug) does not apply. **Criterion (c) admits both**:
+`HHBLITS_AA_TO_ID` maps `B→2, Z→3, J→20, U→1, O→20`, and refusing degenerate/nonstandard symbols
+makes that existing first-party declaration inexpressible.
+
+**Verdict: admit, as a read-only `aliases: Mapping[str, int]` on `Alphabet`** — many-to-one
+symbol→index, excluded from `decode` (so `decode` stays a function), with the invariant that
+every alias target is an already-declared index. Deferred to **v0.2**: Phase 0 (D4) is
+conformance-only over the 10 orders the census found, none of which needs alias support, and
+proxide's HHblits sites are simply not covered by Phase 0's tests. Recorded as a known gap
+rather than silently omitted.
+
+`ReducedAlphabetError` and `MultiCharTokenError` survive: `_HYDROPHOBIC_LETTERS`
+(`ddg_stability.py:146`) is a subset predicate, and the two codon tables are genuine k=3 maps.
+
+**Original requirement, now satisfied:** re-run the census with an **AST pass** over dict and list
 literals, not a regex over strings. Until then, treat every count in §8.2 as a lower bound and
 §8.6's refusals as provisional. `ReducedAlphabetError` and `MultiCharTokenError` survive review
 (both verified: `_HYDROPHOBIC_LETTERS` at `ddg_stability.py:146` is a subset predicate, and
