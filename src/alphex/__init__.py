@@ -15,10 +15,10 @@ kernel (`relation`, `perm`, `convert`, `reindex`). No asset layer and no plugin 
 yet.
 """
 
-from abcdefghijk import known
-from abcdefghijk.alphabet import Alphabet, SpecialKind
-from abcdefghijk.convert import MaskedPerm, Policy, PolicySpec, convert, perm, reindex
-from abcdefghijk.errors import (
+from alphex import known
+from alphex.alphabet import Alphabet, SpecialKind
+from alphex.convert import MaskedPerm, Policy, PolicySpec, convert, perm, reindex
+from alphex.errors import (
   AliasCollisionError,
   AlphabetDeclarationError,
   AlphabetError,
@@ -31,7 +31,7 @@ from abcdefghijk.errors import (
   UnmappableSymbolError,
   UnsupportedFeatureError,
 )
-from abcdefghijk.relation import Relation, RelationKind, relation
+from alphex.relation import Relation, RelationKind, relation
 
 __all__ = [
   "AliasCollisionError",

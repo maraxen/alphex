@@ -6,7 +6,7 @@ be forced to think when it is a PERMUTATION -- the case that silently corrupted 
 
 from __future__ import annotations
 
-from abcdefghijk import Alphabet, RelationKind, SpecialKind, known, relation
+from alphex import Alphabet, RelationKind, SpecialKind, known, relation
 
 
 def test_identical_declarations_are_identity() -> None:

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from abcdefghijk import Alphabet, AlphabetDeclarationError, SpecialKind
+from alphex import Alphabet, AlphabetDeclarationError, SpecialKind
 
 
 def test_symbols_and_offset_place_residues_in_the_index_space() -> None:

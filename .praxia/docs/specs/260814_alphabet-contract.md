@@ -324,7 +324,7 @@ point the distribution will have its real name and the group-name question resol
 
 ### D4 status: DELIVERED 2026-08-14
 
-Library at `abcdefghijk` — `errors.py`, `alphabet.py`, `known.py`, 30 tests, ruff and ty clean.
+Library at `alphex` — `errors.py`, `alphabet.py`, `known.py`, 30 tests, ruff and ty clean.
 Conformance suites landed in all four repos that hold declarations:
 
 | repo | tests | commit | notes |
@@ -413,7 +413,7 @@ so a sixth name for an existing ordering fails the suite (F1 made enforceable).
 
 ## 7. Not yet done
 
-No code written. The library at `abcdefghijk` remains a scaffold (`6627a79` + this doc).
+No code written. The library at `alphex` remains a scaffold (`6627a79` + this doc).
 Nothing in proxide, proteinsmc, aminx, or asr has been modified by this analysis.
 
 ---

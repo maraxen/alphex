@@ -17,7 +17,7 @@ problem the module exists to remove.
 
 from __future__ import annotations
 
-from abcdefghijk.alphabet import Alphabet, SpecialKind
+from alphex.alphabet import Alphabet, SpecialKind
 
 _MPNN = "ACDEFGHIKLMNPQRSTVWY"
 """ProteinMPNN ordering. Sites: proteinsmc `constants.py:294`, asr `alphabet_reconcile.py:30`,

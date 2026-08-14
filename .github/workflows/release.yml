@@ -1,0 +1,84 @@
+# Publish to PyPI on a version tag, via Trusted Publishing (OIDC) -- no API token is stored
+# in this repository, and none should be added.
+#
+# ONE-TIME SETUP, done by a human on pypi.org before the first tag:
+#
+#   1. https://pypi.org/manage/account/publishing/ -> add a *pending* publisher:
+#        PyPI project name : alphex
+#        Owner             : maraxen
+#        Repository        : alphex
+#        Workflow          : release.yml
+#        Environment       : pypi
+#      "Pending" is the right choice pre-first-release: it reserves the name and authorises this
+#      workflow to create the project on its first successful run.
+#   2. In this repo: Settings -> Environments -> New environment -> `pypi`. Add a required
+#      reviewer if you want a human gate between pushing a tag and the upload happening.
+#
+# Then releasing is: bump `version` in pyproject.toml, commit, and
+#   git tag v0.1.0a1 && git push origin v0.1.0a1
+#
+# The tag must match the version in pyproject.toml -- the `verify` job below fails the run
+# rather than publishing a wheel whose version disagrees with the tag that produced it.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Verify the tag matches pyproject version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          declared="$(uv run --no-project python -c "
+          import tomllib, pathlib
+          print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])
+          ")"
+          echo "tag=$tag declared=$declared"
+          [ "$tag" = "$declared" ] || {
+            echo "::error::tag v$tag does not match pyproject version $declared"
+            exit 1
+          }
+
+      - name: Run the suite before publishing anything
+        run: |
+          uv sync
+          uv run ruff check src/ tests/ scripts/
+          uv run ty check src/alphex
+          uv run pytest -q
+
+      - name: Build
+        run: uv build
+
+      - name: Check metadata renders on PyPI
+        run: uvx twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # required for Trusted Publishing; nothing else is needed
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

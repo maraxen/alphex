@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from abcdefghijk import Alphabet, SpecialKind, known
+from alphex import Alphabet, SpecialKind, known
 
 MPNN = "ACDEFGHIKLMNPQRSTVWY"
 AF = "ARNDCQEGHILKMFPSTWYV"

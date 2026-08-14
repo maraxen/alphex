@@ -13,7 +13,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from abcdefghijk import (
+from alphex import (
   Alphabet,
   IncompatibleAlphabetError,
   MaskedPerm,

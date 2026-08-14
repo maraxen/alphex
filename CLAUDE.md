@@ -8,7 +8,7 @@ A zero-to-one-dependency library of **amino-acid alphabet orderings and letter-p
 conversions between them**. Nothing else belongs here — no scoring, no I/O, no structure
 handling, no model code.
 
-**`abcdefghijk` is a placeholder name** (chosen 2026-08-14 to avoid bikeshedding at
+**`alphex` is a placeholder name** (chosen 2026-08-14 to avoid bikeshedding at
 scaffold time). Renaming is expected before any consumer depends on it; do not build
 anything that makes the name load-bearing (no entry points, no CLI, no env-var prefixes).
 
@@ -115,7 +115,7 @@ on proxide keep their existing path.
 uv sync --group dev        # install with dev tooling
 uv run pytest              # tests
 uv run ruff check src/ --fix
-uv run ty check src/abcdefghijk
+uv run ty check src/alphex
 ```
 
 Use `uv run python`, never bare `python`.

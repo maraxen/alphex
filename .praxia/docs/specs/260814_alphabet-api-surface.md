@@ -19,10 +19,15 @@ doc does not restate the reasoning, only the shape.
 
 ## 0. The naming problem, resolved
 
-`abcdefghijk` is a placeholder, and `CLAUDE.md` forbids making it load-bearing. Entry-point
-**group names would do exactly that** — a downstream repo's `pyproject.toml` would hardcode the
-distribution name, and renaming would silently break every registration (entry points fail by
-returning nothing, not by erroring).
+> **Resolved in practice, 2026-08-14.** The placeholder `abcdefghijk` was renamed to **`alphex`**
+> ahead of the first PyPI release (`0.1.0a1`). The decoupling below is what made that a metadata
+> change instead of a breaking one, so it is kept as written — and the entry-point groups stay
+> `alphabet_contract.v1.*`, unchanged by the rename, exactly as designed.
+
+`abcdefghijk` was a placeholder, and `CLAUDE.md` forbids making a placeholder load-bearing.
+Entry-point **group names would do exactly that** — a downstream repo's `pyproject.toml` would
+hardcode the distribution name, and renaming would silently break every registration (entry
+points fail by returning nothing, not by erroring).
 
 **Resolution: the group namespace is decoupled from the distribution name.**
 
@@ -41,7 +46,7 @@ release and must not be changed casually.
 ## 1. Module layout
 
 ```
-src/abcdefghijk/
+src/alphex/
   __init__.py     public re-exports only; no logic
   errors.py       the exception hierarchy (imported by everything, imports nothing)
   alphabet.py     SpecialKind, Alphabet, RelationKind, Relation, relation(), Policy, perm()

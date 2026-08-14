@@ -1,12 +1,28 @@
 [project]
-name = "abcdefghijk"
-version = "0.1.0"
-description = "Amino-acid alphabet orderings and letter-preserving conversions between them."
+name = "alphex"
+# 0.1.0a1, not 0.1.0. The kernel is specced and tested, but the contract records real v0.2
+# gaps -- degenerate and non-standard residue aliases (B/Z/J/U/O), the asset layer, the plugin
+# registry -- and an alpha says so rather than implying they were considered and declined.
+version = "0.1.0a1"
+description = "Biological sequence alphabet orderings and letter-preserving conversions between them."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Marielle Russo", email = "67157875+maraxen@users.noreply.github.com" }
 ]
 requires-python = ">=3.11"
+keywords = ["bioinformatics", "protein", "alphabet", "tokenizer", "esm", "proteinmpnn", "alphafold"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Typing :: Typed",
+]
 
 # INTENTIONALLY MINIMAL -- see CLAUDE.md "The dependency contract".
 #
@@ -25,6 +41,14 @@ requires-python = ">=3.11"
 dependencies = [
     "numpy",
 ]
+
+# Keep table headers BELOW every bare `[project]` key. A `[project.urls]` block placed above
+# `dependencies` silently captures it, and the resulting error ("invalid type: sequence,
+# expected a string") points at the list rather than at the header that swallowed it.
+[project.urls]
+Homepage = "https://github.com/maraxen/alphex"
+Repository = "https://github.com/maraxen/alphex"
+Issues = "https://github.com/maraxen/alphex/issues"
 
 [project.optional-dependencies]
 # Reserved. Anything added here must be lazily imported at the call site with an

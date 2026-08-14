@@ -21,18 +21,18 @@ from typing import TYPE_CHECKING, Union
 
 import numpy as np
 
-from abcdefghijk.alphabet import SpecialKind
-from abcdefghijk.errors import (
+from alphex.alphabet import SpecialKind
+from alphex.errors import (
   IncompatibleAlphabetError,
   MissingSpecialError,
   UnmappableSymbolError,
 )
-from abcdefghijk.relation import RelationKind, relation
+from alphex.relation import RelationKind, relation
 
 if TYPE_CHECKING:
   from collections.abc import Mapping
 
-  from abcdefghijk.alphabet import Alphabet
+  from alphex.alphabet import Alphabet
 
 
 class Policy(enum.Enum):

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from abcdefghijk.errors import AlphabetDeclarationError
+from alphex.errors import AlphabetDeclarationError
 
 if TYPE_CHECKING:
   from collections.abc import Mapping
