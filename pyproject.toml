@@ -62,6 +62,13 @@ ignore = [
 # CLI scripts print to stdout by design, are not an importable package, and their
 # report-building main() is a flat sequence rather than genuinely branchy.
 "scripts/*.py" = ["T201", "INP001", "C901"]
+# Tests assert (that is their job) and compare against literal indices from the census,
+# which are the values under test -- extracting them to constants would hide the thing
+# being asserted behind a name.
+# D103: test names here are full sentences (`test_declaration_rejects_duplicate_symbols`),
+# so a docstring restating the name is noise. Tests whose *reason for existing* is
+# non-obvious -- the ones guarding a specific past defect -- carry a docstring anyway.
+"tests/*.py" = ["S101", "PLR2004", "INP001", "D103"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

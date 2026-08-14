@@ -1,13 +1,48 @@
 """Amino-acid alphabet orderings and letter-preserving conversions between them.
 
-Scaffold only -- no API is implemented yet. See CLAUDE.md for the design contract that
-implementation must follow, in particular:
+This package exists because a silent data-corruption bug shipped: a token table built from the
+AlphaFold residue ordering while named for the ProteinMPNN ordering, permuting every residue
+that is not a fixed point of the permutation (only A, S and T are). Being shape-valid, it
+raised nothing.
 
-  * orderings are named values, not function names (`perm(AF, MPNN)`, not `af_to_mpnn`)
-  * every conversion is letter-preserving
-  * every mapping is total over its declared domain, sentinels included
-  * numpy is the only runtime dependency
+The unit of value here is the **declaration**, not the encoding. See
+`.praxia/docs/specs/260814_alphabet-contract.md` for the contract and
+`260814_alphabet-api-surface.md` for the shape.
 
-`asr/src/asr/alphabet_reconcile.py` already implements this contract well and is the
-intended starting point rather than a blank page.
+v0.1 is Phase 0 (decision D4): the `Alphabet` value type and the shipped declarations, for
+**dev-dependency-only conformance testing** in each consumer repo. No conversion kernel, no
+asset layer, and no plugin registry (D5) yet.
 """
+
+from abcdefghijk import known
+from abcdefghijk.alphabet import Alphabet, SpecialKind
+from abcdefghijk.errors import (
+  AliasCollisionError,
+  AlphabetDeclarationError,
+  AlphabetError,
+  DegenerateSymbolError,
+  IncompatibleAlphabetError,
+  MissingSpecialError,
+  MultiCharTokenError,
+  NonStandardResidueError,
+  ReducedAlphabetError,
+  UnmappableSymbolError,
+  UnsupportedFeatureError,
+)
+
+__all__ = [
+  "AliasCollisionError",
+  "Alphabet",
+  "AlphabetDeclarationError",
+  "AlphabetError",
+  "DegenerateSymbolError",
+  "IncompatibleAlphabetError",
+  "MissingSpecialError",
+  "MultiCharTokenError",
+  "NonStandardResidueError",
+  "ReducedAlphabetError",
+  "SpecialKind",
+  "UnmappableSymbolError",
+  "UnsupportedFeatureError",
+  "known",
+]
