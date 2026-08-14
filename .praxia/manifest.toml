@@ -1,0 +1,47 @@
+[plugin]
+name            = "alphex"
+version         = "0.1.0a1"
+description     = "Biological sequence alphabet orderings and letter-preserving conversions"
+requires_praxia = ">=1.0"
+
+[plugin.mcp]
+# The `alphex-mcp` console script (pyproject.toml [project.scripts]) starts
+# alphex.mcp:mcp_server() on stdio transport. It needs the `mcp` extra --
+# `uv add "alphex[mcp]"` -- because the base install is numpy-only by design and
+# fastmcp/cisternal are not part of that contract.
+command = ["alphex-mcp"]
+
+[[plugin.skills]]
+name = "using-alphex"
+path = "../agent_assets/skills/using-alphex/SKILL.md"
+# Triggered by the vocabulary of the mistake, not just the package name: an agent about to
+# hand-roll a table is exactly the case this skill needs to catch, and it will not be thinking
+# about alphex when it does.
+triggers = [
+  "alphex",
+  "alphabet",
+  "ordering",
+  "residue order",
+  "ProteinMPNN",
+  "AlphaFold",
+  "restypes",
+  "ESM vocab",
+  "permutation table",
+  "remap",
+  "reindex",
+  "one-hot",
+  "posterior",
+  "substitution matrix",
+]
+
+[[plugin.snippets]]
+name  = "alphex-rules"
+path  = "../agent_assets/snippets/rules.md"
+scope = "project"
+# No `scope_detector` on purpose. The right condition is "this repo contains an ordering
+# literal", and the detector vocabulary cannot express it: praxia supports `glob:` (a file
+# exists), `toml:file#key` (a key is present) and `env:` (a variable is set) -- there is no
+# content match. A `glob:` on Python sources would fire in every Python repo, and a `toml:`
+# on the alphex dependency would fire only where the rule is already being followed, which
+# is backwards. Omitted means always-active wherever the plugin is installed, which is a
+# deliberate act and the honest default here.

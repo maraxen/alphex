@@ -51,9 +51,28 @@ Repository = "https://github.com/maraxen/alphex"
 Issues = "https://github.com/maraxen/alphex/issues"
 
 [project.optional-dependencies]
-# Reserved. Anything added here must be lazily imported at the call site with an
-# actionable ImportError, never at module import time.
+# Anything here must be imported only by a module that `alphex/__init__.py` does NOT
+# import, and must fail with an actionable message naming the extra -- never with a
+# bare ImportError. `alphex.cli` and `alphex.mcp` both do this; importing `alphex`
+# itself still pulls nothing but numpy, which is the whole reason this package exists
+# as its own distribution.
 jax = ["jax"]
+cli = ["cyclopts>=3"]
+# The marker is load-bearing, and matches myxcel's precedent for the same dependency.
+# cisternal requires Python >=3.13; alphex supports >=3.11 and must keep doing so, because a
+# cheap install on the widest range of interpreters is the reason this package exists at all.
+# Narrowing `requires-python` to satisfy an optional telemetry dependency would trade the
+# package's purpose for a feature nobody needs to import the library.
+#
+# Consequence, stated rather than discovered: on 3.11/3.12 the `mcp` extra installs fastmcp
+# but NOT cisternal, so `alphex-mcp` exits with the message in alphex/mcp.py naming the 3.13
+# floor. The CLI has no such floor and works everywhere.
+mcp = ["fastmcp>=2", "cisternal>=0.1.1a2; python_version >= '3.13'"]
+agent = ["alphex[cli,mcp]"]
+
+[project.scripts]
+alphex = "alphex.cli:main"
+alphex-mcp = "alphex.mcp:mcp_server"
 
 [dependency-groups]
 dev = [
@@ -83,6 +102,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+# T201: a command-line program's output IS print. Routing it through `logging` would send it
+# to stderr and make `alphex perm ... | jq` stop working, which is the main way this surface
+# is meant to be used.
+"src/alphex/cli.py" = ["T201"]
 # CLI scripts print to stdout by design, are not an importable package, and their
 # report-building main() is a flat sequence rather than genuinely branchy.
 "scripts/*.py" = ["T201", "INP001", "C901"]

@@ -53,7 +53,7 @@ jobs:
 
       - name: Run the suite before publishing anything
         run: |
-          uv sync
+          uv sync --extra cli --extra mcp
           uv run ruff check src/ tests/ scripts/
           uv run ty check src/alphex
           uv run pytest -q

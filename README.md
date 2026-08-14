@@ -74,6 +74,35 @@ without a source is how one gets relabelled.
 **Names are not identity.** Two `Alphabet`s compare equal when their index spaces match,
 whatever they are called. That is what makes an alias collision detectable instead of invisible.
 
+## CLI and MCP
+
+Optional surfaces, for asking the two questions whose absence let a mislabelled table ship —
+"which ordering is this?" and "what does the table look like?" — without writing a script.
+
+```bash
+uv add "alphex[cli]"                  # or [mcp], or [agent] for both
+
+alphex list                           # every shipped declaration
+alphex show MPNN_GAP_21               # symbols, specials, citation, warnings
+alphex relation MPNN_20 AF_20         # classify before converting
+alphex perm MPNN_GAP_21 ESM_C         # the table, plus a letter-preservation check
+alphex lint                           # declarations with conflated sentinels
+```
+
+Every command takes `--json-out`. The MCP server (`alphex-mcp`) exposes the same five as tools —
+`list_alphabets`, `show_alphabet`, `relation`, `perm`, `lint` — registered through
+[cisternal](https://pypi.org/project/cisternal/), which also ships the `using-alphex` skill and
+project rules to Claude Code, Cursor, Copilot and Antigravity via `.praxia/manifest.toml`.
+
+Both surfaces answer from one module (`alphex._surface`) so they cannot drift, and both take a
+single uniform `policy`: the per-`SpecialKind` mapping form exists precisely so ESM's eight
+specials cannot be collapsed onto one index by accident, and squeezing that through a CLI flag
+would make doing so easy. Anything needing per-kind policy calls `perm` directly.
+
+*(The `mcp` extra pulls cisternal, which requires Python ≥3.13. alphex itself supports ≥3.11 and
+will keep doing so, so the dependency is marker-gated: below 3.13 the library and CLI work
+normally and `alphex-mcp` exits with a message saying why.)*
+
 ## Dependencies
 
 `numpy`, and nothing else. That ceiling is the reason this is its own distribution rather than a

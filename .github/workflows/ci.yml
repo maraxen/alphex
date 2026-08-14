@@ -22,7 +22,10 @@ jobs:
           enable-cache: true
 
       - name: Sync
-        run: uv sync --python ${{ matrix.python-version }}
+        # Extras included so `alphex.cli` and `alphex.mcp` are type-checked rather than skipped.
+        # cisternal is still absent below 3.13 (its own floor, marker-gated in the `mcp` extra);
+        # that one import carries a targeted suppression in mcp.py.
+        run: uv sync --extra cli --extra mcp --python ${{ matrix.python-version }}
 
       - name: Lint
         run: uv run ruff check src/ tests/ scripts/
