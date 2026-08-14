@@ -322,6 +322,30 @@ past v0.1. D1 said own the contract and ship no data; with no registry there is 
 the contract yet, and the honest move is to add it when a second registrant appears — at which
 point the distribution will have its real name and the group-name question resolves itself.
 
+### D4 status: DELIVERED 2026-08-14
+
+Library at `abcdefghijk` — `errors.py`, `alphabet.py`, `known.py`, 30 tests, ruff and ty clean.
+Conformance suites landed in all four repos that hold declarations:
+
+| repo | tests | commit | notes |
+|---|---|---|---|
+| proteinsmc | 9 | `b558797` (pushed) | on worktree branch `wt-20260813-170029` |
+| asr | 9 | `8cc2fa5` | includes 2 tripwires on live defects |
+| aminx | 4 | `108b206b` | includes the proxide-duplication equality |
+| proxide | 6 | `c201c68` | includes the degenerate/nonstandard pin |
+
+prolix and tev_design were skipped: the AST census found **zero** declarations in either.
+
+**The mechanism was verified to detect drift, not merely to pass.** One character of the
+library's ProteinMPNN declaration was changed and proteinsmc's suite failed with both orderings
+printed; then reverted. A conformance test that has never failed proves nothing.
+
+**Two live defects found and pinned, not fixed** — `asr/alphabet.py:15-16` interchanges gap and
+unknown in both directions, and `:22` asserts an identity permutation between gap-first Potts
+and gap-last canonical. Both are this library's own bug class, in production source. They are
+asserted as-is so they are visible and cannot drift further; fixing them changes numbers and
+needs its own pass with its own evidence.
+
 **D2 — asr migrates first, then reassess.** *(Sequencing superseded by D4; the reasoning below
 still governs Phase 1, the runtime migration.)* asr is both the source of the contract (F5) and
 where 7 of the 29 declaration sites live, including all four sentinel conventions and the only
