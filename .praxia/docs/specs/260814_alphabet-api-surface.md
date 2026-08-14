@@ -78,8 +78,17 @@ class IncompatibleAlphabetError(AlphabetError):
 
 # --- declaration / registry ---
 class AliasCollisionError(AlphabetError):
-  """Two declarations describe the same index space under different names.
-  This is finding F1 made enforceable."""
+  """Raised in BOTH directions:
+
+  HOMONYMY (primary, malignant) -- one name denotes two different index spaces.
+      This is the failure that actually shipped: `restypes` denotes AlphaFold
+      order in proxide and proteinsmc, was read as ProteinMPNN by a caller, and
+      the resulting table was labelled MPNN. Architecture-review finding #1 is a
+      second instance, committed inside this very spec.
+
+  SYNONYMY (secondary, mostly inert) -- two names denote one index space, e.g.
+      LG_ORDER == AF_20. Worth flagging to keep the census honest, but nobody has
+      ever been harmed by it."""
 
 class AlphabetDeclarationError(AlphabetError):
   """An Alphabet's own fields are inconsistent (duplicate symbols, a special
@@ -215,13 +224,44 @@ class Policy(enum.Enum):
   RAISE   = "raise"    # UnmappableSymbolError on any symbol dst lacks
   UNKNOWN = "unknown"  # map to dst's UNKNOWN; MissingSpecialError if undeclared
   GAP     = "gap"      # map to dst's GAP; MissingSpecialError if undeclared
-  DROP    = "drop"     # map to DROP_SENTINEL; caller must mask
+  MASK    = "mask"     # unmapped positions are masked, not given an index
 
-DROP_SENTINEL: int = -1
+PolicySpec = Policy | Mapping[SpecialKind | None, Policy | int]
+#   a bare Policy applies uniformly; a mapping keys per SpecialKind, with
+#   None as the fallback for residues that dst lacks. An int value pins an
+#   explicit destination index.
 
-def perm(src: Alphabet, dst: Alphabet, *, policy: Policy,
-         dtype: np.dtype = np.int32) -> np.ndarray: ...
+def perm(src: Alphabet, dst: Alphabet, *, policy: PolicySpec,
+         dtype: np.dtype = np.int32) -> np.ndarray | MaskedPerm: ...
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class MaskedPerm:
+  """Returned when any position resolves under Policy.MASK. A distinct type so it
+  cannot be passed where an index array is expected."""
+  table: np.ndarray   # values at masked positions are unspecified; do not index with them
+  valid: np.ndarray   # bool, same shape
 ```
+
+> **Corrections, 2026-08-14 (architecture review, findings #3 and #4).**
+>
+> **#4 — `DROP_SENTINEL = -1` was removed.** It was specified as the out-of-band marker for
+> dropped symbols. It is not out of band: `-1` is a **valid index** in both numpy and `jnp`,
+> selecting the last element of the axis. A dropped symbol would therefore not fail — it would
+> silently become whatever sits at the end of the destination axis (`X` for `MPNN_X_21`, the gap
+> for `AF_GAP_21`, the gap column of a BLOSUM row). That is the same in-band-sentinel failure as
+> the JAX clamp-to-Valine this library exists to prevent, and `dst.size` would have been no
+> better since JAX *clamps* out-of-range gathers. Replaced by `Policy.MASK` returning
+> `MaskedPerm`, which is a different type and so cannot be silently used as an index array.
+>
+> **#3 — `policy` was a single value for a conversion with many specials.** `ESM_C` declares
+> eight. Under the old single-`Policy` signature, `ESM_C -> MPNN_X_21` with `Policy.UNKNOWN`
+> collapsed BOS, PAD, EOS, UNKNOWN, STOP, GAP, CHAIN_BREAK and MASK **all onto index 20,
+> silently** — manufacturing correction C3's condemned defect (many meanings, one index, no
+> signal) on the exact path where the original bug lived, and invisibly to
+> `conflated_specials`, which describes a *declaration* and not a conversion. Meanwhile
+> `Policy.RAISE` raised unconditionally for that pair, so no usable table existed either way.
+> `PolicySpec` now keys per `SpecialKind`. Verbose at ESM call sites, which is the correct
+> amount of friction by this library's own premise.
 
 - `policy` is **keyword-only and has no default.** Contract §2.3. Generalises
   `dca_alphabet.py`'s stated philosophy: *"the failure mode this guards against is a silent
@@ -258,6 +298,35 @@ without the caller declaring what they meant.
 `SIMILARITY`/`RATE` reindex both axes, `FREQUENCY`/`PROPERTY` their only one. The default is
 derived from a declaration rather than assumed, which is the distinction that matters.
 
+`reindex` **validates the axis length**: `data.shape[axis]` must equal `src.size`, or
+`src.padded_size` when declared. If it matches `padded_size`, the trailing block beyond `size`
+must be declared `unclaimed` and resolves under `policy` like any other unclaimed index.
+
+> **Correction, 2026-08-14 (finding #5).** `padded_size` was specified as "metadata only, never
+> affects behaviour", and `reindex` declared no precondition on `data.shape[axis]`. An ESM output
+> head is **64** wide while `ESM_C.size` is 33, so `reindex(logits, ESM_C, ...)` would meet a
+> 64-length axis with a 33-length permutation and — via numpy fancy-indexing — silently succeed,
+> producing a 33-wide result from a mislabelled axis. The flagship "no legal index can fall
+> outside the table" guarantee was stated for `perm` only and unenforced here, on the one alphabet
+> that has padding, which is the alphabet at the bug site. `padded_size` is now load-bearing.
+
+### 3.5 `convert` — the applied, data-dependent form
+
+```python
+def convert(codes: np.ndarray, src: Alphabet, dst: Alphabet, *,
+            policy: PolicySpec) -> np.ndarray | np.ma.MaskedArray: ...
+```
+
+`perm` is the **table** primitive: a pure function of two alphabets, so it cannot refuse based on
+what is actually in an array. `convert` is what callers should normally reach for, and it *can* —
+it raises only when an unmappable value is **present**, not whenever it is expressible.
+
+> **Why this exists (finding #3).** `asr/src/asr/dca_alphabet.py:125-136` refuses via
+> `has_unknown = bool(np.any(arr == MPNN_UNKNOWN_INDEX))` — a data-dependent check. The contract
+> doc calls that module the design philosophy (§F5) yet the API had no function capable of
+> expressing it, which also made **T16 unsatisfiable** against it. The spec had lifted the
+> philosophy and dropped the mechanism that implemented it.
+
 ---
 
 ## 4. `known.py` — shipped declarations
@@ -270,16 +339,40 @@ One declaration per row, each with `provenance`. These replace the 29 scattered 
 | `MPNN_X_21` | `ACDEFGHIKLMNPQRSTVWY` | 0 | `UNKNOWN:20` | proxide `chem/conversion.py:16` |
 | `MPNN_GAP_21` | `ACDEFGHIKLMNPQRSTVWY` | 0 | `GAP:20` | asr `alphabet.py:8` |
 | `MPNN_GAPFIRST_21` | `ACDEFGHIKLMNPQRSTVWY` | 1 | `GAP:0` | asr `pdz_utils.py:8` (Potts/DCA) |
-| `MPNN_X_STOP_22` | `ACDEFGHIKLMNPQRSTVWY` | 0 | `UNKNOWN:21, STOP:21` | proteinsmc `constants.py:115-117` |
+| `MPNN_GAP_X_STOP_22` | `ACDEFGHIKLMNPQRSTVWY` | 0 | `GAP:20, UNKNOWN:21, STOP:21` | proteinsmc `constants.py:294` — domain of `PROTEINMPNN_TO_ESM_AA_MAP_JAX` |
+| `AF_GAP_X_STOP_22` | `ARNDCQEGHILKMFPSTWYV` | 0 | `GAP:20, UNKNOWN:21, STOP:21` | proteinsmc `constants.py:10-31` + `:113` — domain of `ALPHAFOLD_TO_ESM_AA_MAP_JAX`, and the space `AA_CHAR_TO_INT_MAP`/`CODON_INT_TO_RES_INT_JAX` actually inhabit |
+| `AF_X_GAP_22` | `ARNDCQEGHILKMFPSTWYV` | 0 | `UNKNOWN:20, GAP:21` | proxide `chem/residues.py:753` `restypes_with_x_and_gap` — **note the sentinels are in the opposite order** to the two rows above |
 | `AF_20` | `ARNDCQEGHILKMFPSTWYV` | 0 | — | AlphaFold `residue_constants`, Apache-2.0 |
 | `AF_X_21` | `ARNDCQEGHILKMFPSTWYV` | 0 | `UNKNOWN:20` | proxide `chem/conversion.py:17` |
 | `AF_GAP_21` | `ARNDCQEGHILKMFPSTWYV` | 0 | `GAP:20` | asr `blosum_utils.py:32` (`PROXIDE_ORDER`) |
 | `ESM_C` | `LAGVSERTIDPKQNFYMHWC` | 4 | `BOS:0, PAD:1, EOS:2, UNKNOWN:24, STOP:29, GAP:30, CHAIN_BREAK:31, MASK:32` | ESM3/ESM-C `SEQUENCE_VOCAB`, MIT |
 | `DNA_4` | `ACGT` | 0 | — | proteinsmc `constants.py:40` |
 
-`MPNN_X_STOP_22` deliberately declares the conflation (C3) rather than hiding it, so
-`.conflated_specials` reports `{{UNKNOWN, STOP}}` and `lint()` warns. Declaring reality is what
-lets it be fixed; refusing to declare it would leave proteinsmc outside the system.
+`MPNN_GAP_X_STOP_22` and `AF_GAP_X_STOP_22` deliberately declare proteinsmc's conflation (C3)
+rather than hiding it, so `.conflated_specials` reports `{{UNKNOWN, STOP}}` and `lint()` warns.
+Declaring reality is what lets it be fixed; refusing to declare it would leave proteinsmc outside
+the system.
+
+> **Correction, 2026-08-14 (architecture review, finding #1).** An earlier revision of this table
+> had a single row `MPNN_X_STOP_22` with `symbols = ACDEFGHIKLMNPQRSTVWY` (ProteinMPNN) cited to
+> `constants.py:115-117`. **That was wrong, and wrong in exactly the way this library exists to
+> prevent.** `PROTEINMPNN_X_INT = 21` is a *misnomer in proteinsmc*: the index space its
+> siblings inhabit is AlphaFold-ordered, because `AA_CHAR_TO_INT_MAP = restype_order`
+> (`:113`) is built from `restypes` (`:10-31`, `ARNDCQEGHILKMFPSTWYV`), and
+> `CODON_INT_TO_RES_INT_JAX` (`:121-130`) is filled from it. I named the alphabet after the
+> *constant* rather than after the *ordering the constant indexes* — the identical causal step
+> as the shipped bug, committed inside the document written to prevent it, against a source file
+> that carries the warning at `:295` (*"ProteinMPNN's 20-letter ordering. Distinct from
+> `restypes`, which is AlphaFold's."*).
+>
+> The row also omitted `unclaimed`, so index 20 was neither residue, special, nor unclaimed —
+> meaning the declaration would have raised `AlphabetDeclarationError` under this spec's own
+> totality rule. Two defects, one row.
+>
+> **Rule adopted as a result: every `known.py` row cites the line of the *ordering literal*,
+> never the line of a sentinel constant.** The two 22-wide rows above are now split by ordering
+> and cite `:294` and `:10-31` respectively, matching the two token maps actually built in
+> `constants.py:320-326`.
 
 `ESM_C.size = 33`, `padded_size = 64`, and `unclaimed = {3, 25, 26, 27, 28}` — index 3 is the
 tokenizer-level `<unk>` (distinct from residue-level `X` at 24, and pure tokenizer machinery we
@@ -301,16 +394,31 @@ class AssetKind(enum.Enum):
   FREQUENCY  = "frequency"    # equilibrium frequencies pi
   PROPERTY   = "property"     # per-symbol scalars (hydrophobicity, volume)
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, eq=False)   # eq=False: see the correction below
 class Asset:
   data:       np.ndarray
   alphabet:   Alphabet
   kind:       AssetKind
   name:       str
-  provenance: str            # required
+  citation:   str            # required, scientific, stable
   sha256:     str | None = None
   rtol:       float = 1e-6
+
+  def __eq__(self, other) -> bool:   # explicit: array_equal on data, == elsewhere
+  def __hash__(self) -> int:         # over (name, kind, alphabet, sha256) — never over data
 ```
+
+> **Correction, 2026-08-14 (finding #13).** As originally specified — `frozen=True` with a
+> `data: np.ndarray` field and no custom `__eq__` — the generated `__eq__` compares field tuples,
+> so `asset_a == asset_b` returns an *array* and then raises "truth value of an array is
+> ambiguous"; and the generated `__hash__` (implied by `frozen` + `eq`) hashes the ndarray and
+> raises `TypeError`. Both would surface the first time an `Asset` entered a set or a `==`.
+> Now `eq=False` with explicit methods.
+>
+> The same hazard applies to `Alphabet`: `specials: Mapping[...]` combined with a hash over
+> `specials` (§3.2) requires a genuinely hashable mapping, so the field must normalise to a
+> `frozenset` of items — a plain `dict` default would make `Alphabet` unhashable and break its
+> use as a registry key.
 
 Validated in `__post_init__` (contract §8.6: at registration, not first use), raising
 `AssetInvariantError`:
@@ -410,7 +518,7 @@ Tests are as much the deliverable as the code — every contract invariant maps 
 | # | test | asserts | why |
 |---|---|---|---|
 | T1 | `test_round_trip` | `perm(b,a)[perm(a,b)[x]] == x` for every compatible pair, all `x` | conversion is invertible where lossless |
-| T2 | `test_letter_preserved` | `b.decode(perm(a,b)[codes]) == a.decode(codes)` — **compares characters** | contract §2.3; index equality is *not* the check that catches the bug |
+| T2 | `test_letter_preserved` | for pairs where `not relation(a,b).lossy`: `b.decode(perm(a,b)[codes]) == a.decode(codes)` — **compares characters**. For lossy pairs, the weaker correct form: letters are preserved on the shared symbol set, and every non-shared symbol lands on the target its policy declares | contract §2.3; index equality is *not* the check that catches the bug. **Scoping added 2026-08-14 (finding #12):** as first written, T2 claimed to hold "for every compatible pair" and would have *failed by design* — under `Policy.UNKNOWN`, `MPNN_GAP_21 → MPNN_X_21` sends the gap to `X`, so the decoded strings differ. The flagship test was ill-posed for exactly the conversions that need it most |
 | T3 | `test_totality` | `len(perm(a,b)) == a.size` for every pair; no index unmapped | the length-20-over-21-domain bug, made impossible |
 | T4 | `test_alias_identity` | `MPNN_20.symbols == "ACDEFGHIKLMNPQRSTVWY"`, `AF_20.symbols == "ARNDCQEGHILKMFPSTWYV"`, and `MPNN_20 != AF_20` | **F1 enforced**: a sixth alias fails the suite instead of becoming a convention |
 | T5 | `test_esm_is_third_ordering` | `ESM_C.symbols` equals neither, is a permutation of the 20, and shares exactly 1 fixed point with each | correction C1, locked so a future edit cannot quietly collapse it |

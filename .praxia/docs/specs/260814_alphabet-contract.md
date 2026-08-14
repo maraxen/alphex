@@ -358,8 +358,8 @@ independent instances actually observed:
 | non-protein symbol sets | 1 (ACGT) | **core by construction** — just don't assume 20 |
 | similarity matrices | asr BLOSUM62 | **asset**, registered not owned (D1) |
 | rate matrices | asr JTT, LG | **asset** — *different invariants*, see 8.4 |
-| degenerate/ambiguity symbols | **0 in ecosystem**; present in ESM vocab; biotite models 15-symbol IUPAC DNA | **declare unrepresentable** |
-| nonstandard residues (U, O) | present in ESM vocab, 0 uses | **declare unrepresentable** |
+| degenerate/ambiguity symbols | ~~0 in ecosystem~~ **AT LEAST 1, LIVE — count invalid, see C5** | ~~declare unrepresentable~~ **RE-ADJUDICATE** |
+| nonstandard residues (U, O) | ~~0 uses~~ **LIVE in proxide — count invalid, see C5** | ~~declare unrepresentable~~ **RE-ADJUDICATE** |
 | reduced alphabets / morphisms | **1** (aminx `_HYDROPHOBIC_LETTERS`, and it is a subset predicate, not a morphism) | **declare unrepresentable** |
 | multi-character tokens (codons) | **1** (proteinsmc `CODON_TO_RES_CHAR`, 3 nt → 1 aa) | **declare unrepresentable** |
 | case / soft-masking | **0** | **out of scope** |
@@ -482,6 +482,53 @@ registry: entry-point discovery, collision-guarded
 `Relation` is the addition this addendum most wants: it lets a caller (or a test) assert
 *"this conversion is an EXTENSION"* — a claim that is free and safe — and be forced to think
 when it is a `PERMUTATION`, which is the case that silently corrupted data.
+
+## 8.9 C5 — the refusal counts are wrong, and the census method is the reason
+*(added 2026-08-14 after architecture review, finding #6; verified by direct read)*
+
+Two of the four refusals in §8.6 rest on instance counts of **0**. Both are false, in the repo
+this document names as the shared upstream. `proxide/src/proxide/chem/residues.py`:
+
+- `:695-725` `HHBLITS_AA_TO_ID` maps `B → 2`, `Z → 3` — **degenerate/ambiguity symbols, live**.
+- `:728-751` `ID_TO_HHBLITS_AA` carries `1: "C",  # Also U.` and `20: "X",  # Includes J and O.`
+  — **nonstandard residues U and O, live, with a stated resolution policy** (`U → C` is
+  precisely a shape-valid silent remap of the kind this document is about).
+- `:753` `restypes_with_x_and_gap = [*restypes, "X", "-"]` — an **eighth alphabet**: AF-ordered,
+  q=22, `X@20`, `gap@21`. Absent from §1's seven-row table. Note its sentinel order is the
+  *reverse* of proteinsmc's 22-wide space (`GAP@20, UNKNOWN@21`).
+- `:754-756` `MAP_HHBLITS_AATYPE_TO_OUR_AATYPE` — a **live cross-convention conversion table**,
+  exactly the class of object this library claims to own.
+
+So **F3 also undercounts**: proxide has *three* alphabet declaration sites, not two, and the
+third is the AlphaFold-derived origin the other two copy from.
+
+**The cause is the census method, and C1 already named it without acting on it.** The extraction
+was a regex for 18-25-character string literals in `src/`. C1 admitted that cannot see a Python
+*list* and corrected one row — but never re-ran the method over **dicts**, and both now-falsified
+refusal rows are dict-declared. The 29-site figure is wrong in the other direction too:
+`aminx/ebm/ddg_stability.py:77` is a docstring mention, not a declaration.
+
+**Consequence for the §8.6 rule.** The rule is sound; its *application* is not, and the flaw is
+structural rather than clerical. A rule whose predicate is an instance count is only as good as
+the count — and the counts on the refusal side (`0, 0, 1, 1`) were the least-evidenced numbers in
+the document while being the most load-bearing.
+
+Criterion (b) — "a shipped bug occurred along it" — is also **survivor-biased toward axes that
+are already instrumented**. `offset` was admitted on one instance because a bug was *noticed*
+there; degenerate symbols were refused on a miscount because nothing along that axis has failed
+*loudly* yet — and it structurally cannot, since `U → C` is silent by construction. As written,
+the rule would refuse to model live production code on the grounds that the code has not yet been
+caught.
+
+**Amendment adopted — criterion (c):** *an axis is admitted if refusing it makes an existing
+first-party declaration inexpressible.* Under (c), `restypes_with_x_and_gap` and the HHblits
+maps force degenerate and nonstandard symbols to be reconsidered.
+
+**Required before §8.6 is refrozen:** re-run the census with an **AST pass** over dict and list
+literals, not a regex over strings. Until then, treat every count in §8.2 as a lower bound and
+§8.6's refusals as provisional. `ReducedAlphabetError` and `MultiCharTokenError` survive review
+(both verified: `_HYDROPHOBIC_LETTERS` at `ddg_stability.py:146` is a subset predicate, and
+`CODON_TO_RES_CHAR` at `proteinsmc/utils/constants.py:46-111` is a genuine k=3 table).
 
 ## 8.8 What is still not decided
 
