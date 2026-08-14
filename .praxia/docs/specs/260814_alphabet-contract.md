@@ -36,12 +36,15 @@ at 21) and the ESM `SEQUENCE_VOCAB` (33 tokens, residues non-contiguous, gap at 
 
 ### What the census establishes
 
-**F1 — The alias problem is worse than the ordering problem.** Only two residue orderings
-exist. But they travel under at least five names: base MPNN is `MPNN_ALPHABET`,
-`CANONICAL_ALPHABET`, `CANONICAL_Q20`, `PROTEINMPNN_RESTYPES`; base AF is `AF_ALPHABET`,
-`LG_ORDER`, `AA_ORDER`, `restypes`. Verified by execution: asr's `LG_ORDER` is byte-identical
-to proxide's `AF_ALPHABET[:20]`, and `CANONICAL_Q20` to `MPNN_ALPHABET[:20]`. Two names for one
-thing is how a table gets built from one and labelled the other, which is the shipped bug.
+**F1 — The alias problem is worse than the ordering problem.** ~~Only two residue orderings
+exist.~~ **CORRECTED in §8.1: there are three** — the ESM vocabulary contributes a third,
+which this section missed by only regexing `src/` for 18-25-char literals (ESM's is a Python
+list, not a string). The alias point stands and is unaffected: the orderings travel under at
+least five names. Base MPNN is `MPNN_ALPHABET`, `CANONICAL_ALPHABET`, `CANONICAL_Q20`,
+`PROTEINMPNN_RESTYPES`; base AF is `AF_ALPHABET`, `LG_ORDER`, `AA_ORDER`, `restypes`. Verified
+by execution: asr's `LG_ORDER` is byte-identical to proxide's `AF_ALPHABET[:20]`, and
+`CANONICAL_Q20` to `MPNN_ALPHABET[:20]`. Two names for one thing is how a table gets built from
+one and labelled the other, which is the shipped bug.
 
 **F2 — Sentinel placement is the real variance, and it is where the damage happened.** Four
 conventions (none / X@20 / gap@20 / gap@0), and the proteinsmc bug's second half was exactly a
@@ -305,3 +308,183 @@ so a sixth name for an existing ordering fails the suite (F1 made enforceable).
 
 No code written. The library at `abcdefghijk` remains a scaffold (`6627a79` + this doc).
 Nothing in proxide, proteinsmc, aminx, or asr has been modified by this analysis.
+
+---
+
+# 8. Addendum: systematic feature census, and the tokenizer question
+
+Added 2026-08-14 in response to: *are we reinventing the wheel, is this really a discrete
+tokenizer, and what is the right balance of abstraction and grounding?*
+
+## 8.1 Corrections to §1
+
+**C1 — There are THREE base orderings, not two.** The ESM vocabulary's 20 canonical residues
+are ordered `LAGVSERTIDPKQNFYMHWC` (roughly by corpus frequency), a genuine third permutation:
+verified by execution, it shares exactly **one** fixed point with MPNN (`W`) and **one** with AF
+(`K`). §1 missed it because the extraction regex matched string literals in `src/`, and the ESM
+vocabulary is a Python list of per-token strings. A census whose method cannot see a list is not
+a complete census — worth remembering before treating the 29-site figure as exhaustive.
+
+**C2 — ESM's canonical 20 are contiguous, at an offset of 4.** I had described this vocabulary
+as having non-contiguous residues; that is wrong. Indices 4-23 are the 20 canonical residues in
+ESM order, with special tokens at 0-3. This is the difference between "arbitrary learned
+vocabulary" (not tractable to model) and "ordering + offset" (trivial to model), so the error
+mattered: it made the ESM path look like it needed a tokenizer when it needs an integer.
+
+**C3 — Sentinels are not one kind, and proteinsmc conflates two of them.** The ESM vocabulary
+distinguishes at least six: BOS/pad/EOS/unk (0-3), degenerate-and-nonstandard (24-28: `X B U Z
+O`), `.` (29), gap (30), chain-break (31), mask (32). Against that, proteinsmc sets
+`STOP_INT = UNKNOWN_AA_INT = PROTEINMPNN_X_INT = 21` (`constants.py:115-117`) — one integer for
+"stop codon" and "unknown residue". That is a latent defect of the same family as the one already
+fixed: two distinct meanings sharing an index, with no error signal when they are confused.
+
+**C4 — The domain is not protein-only.** proteinsmc declares a nucleotide alphabet
+(`NUCLEOTIDES_CHAR = ACGT`, `constants.py:40`). Same abstraction, different symbol set. Nothing
+in the contract should assume 20 residues.
+
+## 8.2 The feature census
+
+Every axis along which real alphabets in and around this ecosystem vary, with the count of
+independent instances actually observed:
+
+| axis | instances observed | verdict |
+|---|---|---|
+| residue ordering | **3** (MPNN, AF, ESM) | **core** |
+| sentinel placement | **4+** (none, X@20, gap@20, gap@0, ESM's layout) | **core** |
+| sentinel *kind*, typed | **6+** in ESM; conflated in proteinsmc (C3) | **core** |
+| index offset | **1** (ESM, +4) | **core** — sole instance, but it is the bug site |
+| extension vs permutation | biotite models it; MPNN→MPNN+X is extension, MPNN→gap-first is not | **core** — cheap, and it *is* the safety distinction |
+| cardinality / padding | ESM 33 symbols padded to 64 | **metadata only**, no behaviour |
+| non-protein symbol sets | 1 (ACGT) | **core by construction** — just don't assume 20 |
+| similarity matrices | asr BLOSUM62 | **asset**, registered not owned (D1) |
+| rate matrices | asr JTT, LG | **asset** — *different invariants*, see 8.4 |
+| degenerate/ambiguity symbols | **0 in ecosystem**; present in ESM vocab; biotite models 15-symbol IUPAC DNA | **declare unrepresentable** |
+| nonstandard residues (U, O) | present in ESM vocab, 0 uses | **declare unrepresentable** |
+| reduced alphabets / morphisms | **1** (aminx `_HYDROPHOBIC_LETTERS`, and it is a subset predicate, not a morphism) | **declare unrepresentable** |
+| multi-character tokens (codons) | **1** (proteinsmc `CODON_TO_RES_CHAR`, 3 nt → 1 aa) | **declare unrepresentable** |
+| case / soft-masking | **0** | **out of scope** |
+
+## 8.3 Are we reinventing the wheel? Partly — and the part that is not is the point
+
+**What biotite already covers,** verified by execution: `Alphabet` (encode/decode/get_symbols),
+`AlphabetMapper` (letter-preserving conversion), `LetterAlphabet` (arbitrary orderings),
+`extends` (subsumption — `ProteinSequence.alphabet.extends(the 20)` is True, the converse
+False), full IUPAC ambiguity for nucleotides (`A C G T R Y W S M K H B V D N`), and **91**
+bundled similarity matrices. On these axes we are reinventing, and §4's `derive_inspiration`
+verdict is the acknowledgement.
+
+**What nothing external covers:**
+
+1. **Cross-convention index reconciliation as a first-class concern.** Every library assumes it
+   *owns* the vocabulary. biotite's `AlphabetMapper` converts between two alphabets you already
+   hold as objects; it has nothing to say about a bare `int8` array arriving from another library
+   under an undeclared convention. That undeclared arrival is our entire bug class.
+2. **Rate matrices.** biotite ships 91 similarity matrices and **zero** rate matrices — no JTT,
+   LG, or WAG — and its `phylo` module offers only distance methods (NJ, UPGMA), no substitution
+   models. asr's JTT and LG have no external home. (Real gap, but per D1 in the asset layer we
+   deliberately do not own.)
+
+So: the *data structure* is a wheel; the *reconciliation discipline* is not.
+
+## 8.4 Assets need a kind, because their invariants differ
+
+§3.1 said an asset is `(data, alphabet)`. That is insufficient — it must be
+`(data, alphabet, kind)`, because what makes an asset *valid* depends on kind:
+
+| kind | invariants that are checkable |
+|---|---|
+| `SIMILARITY` (BLOSUM, PAM) | square, symmetric, alphabet-length axes |
+| `RATE` (JTT, LG, WAG) | rows sum to 0; `Q = S·diag(π)` with `S` symmetric; detailed balance `π_i Q_ij = π_j Q_ji` |
+| `FREQUENCY` (π) | non-negative, sums to 1, length = alphabet |
+| `PROPERTY` (hydrophobicity) | length = alphabet, no algebraic constraint |
+
+Treating a rate matrix as merely "a matrix with an alphabet" discards every invariant that would
+catch a transposition or a mis-scaling. This is the same lesson as the alphabet itself: the type
+is what makes the error checkable.
+
+## 8.5 Is this a discrete tokenizer? No — and the difference is exactly the contract
+
+The reframe is close enough to be worth taking seriously, and rejecting precisely.
+
+A tokenizer's contract is **`decode(encode(s)) == s`**. Its integer IDs are *private*: nobody
+outside cares that ESM assigns `L → 4`, only that the round trip holds. The vocabulary is owned
+by one model, and ownership is what makes the arbitrary assignment safe.
+
+Our integers are **public**, and they cross library boundaries *as array indices into data
+ordered by a different convention*. Integer 1 denotes `C` under MPNN and `R` under AF. The bug
+was not a failed round trip — it was two libraries agreeing on the integer and disagreeing on
+the letter.
+
+**This is why the tokenizer contract is not merely different but insufficient:** proteinsmc's
+broken table round-tripped perfectly *within itself*. So did the correct one. Round-trip fidelity
+cannot distinguish them. Only a cross-convention invariant — letter preservation under
+conversion — can, and no tokenizer models that, because a tokenizer has no notion of a rival
+convention for the same symbols.
+
+A tokenizer also cannot have our bug at all, structurally, because it owns both ends. Our
+problem is the *absence* of single ownership. So:
+
+> This is not a tokenizer. It is an **index-convention reconciliation layer**. The unit of value
+> is the *declaration*, not the encoding.
+
+**Where the tokenizer framing does earn its keep:** ESM's vocabulary genuinely *is* a tokenizer
+vocabulary — specials, offset, mask token, padding to 64, frequency ordering. The library must be
+able to **describe** such a vocabulary as data (ordering + offset + typed specials, per C2/C3)
+without acquiring any tokenization *behaviour*. Model the vocabulary, not the tokenizer. That
+distinction is the whole answer to the balance question.
+
+## 8.6 The abstraction ceiling, as a checkable rule
+
+The failure mode to avoid is named in §4's own citation set — the second-system effect, which
+the decision matrix flags specifically against `derive_inspiration`: freed from the original's
+constraints, a successor design over-embellishes. A general "discrete symbol algebra" is exactly
+that trap, and it is attractive right now.
+
+**Rule.** An abstraction is admitted only if either:
+
+- **(a)** the census shows **≥2 independent instances of variance** along that axis, or
+- **(b)** it is an axis along which a **shipped bug** has actually occurred.
+
+Everything else is **declared explicitly unrepresentable, with a named error** — never modelled
+generically, and never silently accepted.
+
+Applying it to 8.2: ordering, sentinel placement, and sentinel kind enter under (a). Offset
+enters under (b) alone — one instance, but the ESM path is where the bug lived. Extension-vs-
+permutation enters under (b), since it is the distinction between a free conversion and the one
+that corrupted data. Degenerate symbols, nonstandard residues, reduced alphabets, and codons are
+each **1 or 0 instances with no bug history**, so all four are refused — and each gets a named
+error rather than silence:
+
+```
+DegenerateSymbolError   -- B/Z/J and IUPAC nucleotide ambiguity codes are set-valued;
+                           this library maps symbols to single indices and will not guess.
+NonStandardResidueError -- U (Sec), O (Pyl) are real residues outside every declared
+                           alphabet here; register an alphabet that includes them.
+ReducedAlphabetError    -- many-to-one symbol morphisms are lossy; out of scope.
+MultiCharTokenError     -- codons and any k>1 token; that is a tokenizer's job, not this.
+```
+
+This is the `dca_alphabet.py` philosophy generalised: *"the failure mode this guards against is a
+silent default, not an unavailable conversion."* Refusing loudly is a feature. It also keeps the
+door open — each error names what a caller would have to register to proceed, so the refusals are
+extension points rather than dead ends.
+
+## 8.7 Revised core surface
+
+```
+Alphabet(symbols, offset=0, specials={}, name, provenance)   # specials: SpecialKind -> int
+Relation(src, dst) -> IDENTITY | EXTENSION | PERMUTATION | INCOMPATIBLE
+perm(src, dst, policy) -> ndarray                            # policy required, never defaulted
+Asset(data, alphabet, kind)                                  # kind gates the invariants
+registry: entry-point discovery, collision-guarded
+```
+
+`Relation` is the addition this addendum most wants: it lets a caller (or a test) assert
+*"this conversion is an EXTENSION"* — a claim that is free and safe — and be forced to think
+when it is a `PERMUTATION`, which is the case that silently corrupted data.
+
+## 8.8 What is still not decided
+
+The four refusals in 8.6 are refusals *for now*, justified by instance count. If asr's DCA work
+starts needing reduced alphabets, or a nucleotide path needs IUPAC ambiguity, the rule in 8.6 is
+the thing to re-run — not the conclusion to defend.
