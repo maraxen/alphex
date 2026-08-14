@@ -250,17 +250,58 @@ independently benchmarked — if one is proposed later it deserves its own pass.
 
 ---
 
-## 5. Open questions — these are the user's calls, not determined here
+## 5. Scope decisions (user-decided 2026-08-14)
 
-1. **Scope: alphabets only, or alphabets + assets?** §3 designs the asset layer, but shipping it
-   means this library owns BLOSUM62/JTT/LG. Alphabets-only is a much smaller thing that solves
-   F1/F2 but leaves F4 unaddressed.
-2. **Does asr migrate, or only new code?** The cherry-pick verdict assumes asr eventually imports
-   the library instead of keeping its own copies. If asr keeps them, we have added an eighth
-   declaration site rather than removing seven.
-3. **Does proxide deduplicate its own two declarations (F3) as part of this, or separately?**
+**D1 — Own the alphabets and the asset *contract*; ship no assets.** The core provides
+`Alphabet`, `perm()`, the sentinel policies, the `Asset = (data, alphabet)` contract, and
+entry-point registration. `data/` ships empty. This library never becomes the owner of
+BLOSUM62/JTT/LG.
 
-## 6. Not yet done
+Consequence: F4 gets a correct home without a custody transfer. asr keeps `jtt_model.py` and
+`blosum_utils.py` as the data's owner and *registers* them:
 
-No code written. The library at `abcdefghijk` remains a scaffold (`6627a79`). Nothing in
-proxide, proteinsmc, aminx, or asr has been modified by this analysis.
+```toml
+[project.entry-points."<pkg>.matrices"]
+jtt = "asr.jtt_model:JTT_ASSET"
+```
+
+The `PROXIDE_ORDER` provenance gap closes because registration requires a declared alphabet —
+the thing that variable name was standing in for. `jtt_model.py`'s sha256 + parity-test
+discipline stays where it already works rather than being generalised speculatively.
+
+**D2 — asr migrates first, then reassess.** asr is both the source of the contract (F5) and
+where 7 of the 29 declaration sites live, including all four sentinel conventions and the only
+instance of ordering 7. It is the hardest case, so it is the right proving ground: a contract
+that cannot express asr's needs is wrong, and better to learn that against one repo than four.
+
+Explicitly *not* now: proxide's internal duplication (F3), proteinsmc, aminx. proteinsmc and
+aminx are mid-partition and should not take a new edge while that is in flight. F3 is a
+two-line dedup that can happen any time and does not gate this.
+
+Accepted risk: until asr migrates, this library is an eighth declaration site, so the census
+gets marginally worse before it gets better. D2 is what bounds how long that lasts.
+
+**D3 — Defer the biotite bridge.** Design so a bridge is cheap; write no biotite code. Nothing
+in the ecosystem currently converts to or from a `biotite.sequence.Alphabet`, so building it now
+is speculative surface. §4's `accept_dependency` verdict stands as a pre-adjudicated decision to
+be *executed when a caller appears*, not withdrawn — the `[project.optional-dependencies] jax`
+slot in `pyproject.toml` already models the lazy-import shape a `biotite` extra would follow.
+
+## 6. What implementation follows from this
+
+Three modules, numpy-only, no shipped data:
+
+| module | contents |
+|---|---|
+| `alphabet.py` | `Alphabet` value (symbols, name, provenance); `perm(src, dst)`; sentinel policy enum |
+| `asset.py` | `Asset = (data, alphabet)` contract; validation against §2.3 |
+| `registry.py` | `importlib.metadata` entry-point discovery; symbols-collision guard |
+
+Tests are the deliverable as much as the code, per §2.3: round-trip property, letter
+preservation by character comparison, totality over sentinels, and an alias-identity assertion
+so a sixth name for an existing ordering fails the suite (F1 made enforceable).
+
+## 7. Not yet done
+
+No code written. The library at `abcdefghijk` remains a scaffold (`6627a79` + this doc).
+Nothing in proxide, proteinsmc, aminx, or asr has been modified by this analysis.
