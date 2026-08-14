@@ -219,7 +219,8 @@ class Policy(enum.Enum):
 
 DROP_SENTINEL: int = -1
 
-def perm(src: Alphabet, dst: Alphabet, *, policy: Policy) -> np.ndarray: ...
+def perm(src: Alphabet, dst: Alphabet, *, policy: Policy,
+         dtype: np.dtype = np.int32) -> np.ndarray: ...
 ```
 
 - `policy` is **keyword-only and has no default.** Contract §2.3. Generalises
@@ -241,13 +242,21 @@ def perm(src: Alphabet, dst: Alphabet, *, policy: Policy) -> np.ndarray: ...
 
 ```python
 def reindex(data: np.ndarray, src: Alphabet, dst: Alphabet, *, policy: Policy,
-            axis: int = -1) -> np.ndarray: ...
+            axes: int | tuple[int, ...]) -> np.ndarray: ...
 ```
 
 The **output-axis** counterpart, for posteriors and matrices whose axis is indexed by an
 alphabet rather than holding codes. Contract §2.4: input relabel and output reindex are distinct
 operations and usually both needed; omitting either silently scrambles letter identity. Both are
 exported side by side so the pairing is visible at the call site.
+
+`axes` is **required** — see Q1 in §10. A rate matrix reindexed on one axis and not the other is
+silently transposed nonsense, and this library exists because an index operation was applied
+without the caller declaring what they meant.
+
+`Asset.reindexed()` is the one place `axes` may be omitted, because `AssetKind` determines it:
+`SIMILARITY`/`RATE` reindex both axes, `FREQUENCY`/`PROPERTY` their only one. The default is
+derived from a declaration rather than assumed, which is the distinction that matters.
 
 ---
 
@@ -441,14 +450,50 @@ graded, not assumed.
 
 ---
 
-## 10. Open shape questions
+## 10. Shape questions, resolved
 
-1. **`reindex` on 2-D data** — for a `(q, q)` matrix, reindex both axes by default, or require
-   the caller to name axes explicitly? Defaulting is convenient; naming is harder to get wrong.
-   Leaning explicit, consistent with the no-silent-defaults principle.
-2. **Does `perm` return `int32` or match the source dtype?** `int32` is proposed for uniformity;
-   the census's sequences are `int8`, so a caller indexing an `int8` array with an `int32` table
-   gets `int32` out and may be surprised. A `dtype=` parameter would settle it.
-3. **Should `MPNN_X_STOP_22` ship at all,** or should proteinsmc register it? Shipping it makes
-   the conflation visible to everyone; registering it keeps `known.py` to alphabets that are not
-   defects. Leaning ship-with-lint-warning.
+All three are local and cheap to reverse; resolved rather than left open so implementation is
+unblocked.
+
+**Q1 — `reindex` on 2-D data: axes must be named explicitly.**
+
+```python
+def reindex(data, src, dst, *, policy: Policy, axes: int | tuple[int, ...]) -> np.ndarray
+```
+
+`axes` is required, not defaulted to `-1` or to "all of them". A substitution matrix needs both
+axes; a posterior needs its last only; a rate matrix reindexed on one axis and not the other is
+silently transposed nonsense. The whole library exists because an index operation was applied
+without the caller declaring what they meant, so a convenient default here would contradict its
+premise. Consistent with `policy` having no default.
+
+**Q2 — `perm` returns `int32`, with an explicit `dtype` parameter.**
+
+```python
+def perm(src, dst, *, policy: Policy, dtype: np.dtype = np.int32) -> np.ndarray
+```
+
+`int32` by default because the table must hold destination indices up to at least 63 (ESM padded)
+and `int8` would be a silent-overflow hazard on any future larger vocabulary. The `dtype`
+parameter exists because the census's sequences are `int8`, so `table[codes]` yields `int32` and
+a caller round-tripping into an `int8` buffer would otherwise need a cast they might forget.
+Passing `dtype=np.int8` is safe for every alphabet in `known.py` — all have `size <= 64` — and
+the constructor validates that `dst.size - 1` fits the requested dtype, raising rather than
+wrapping.
+
+**Q3 — `MPNN_X_STOP_22` ships, with `lint()` warning.**
+
+The alternative — keeping `known.py` free of defective declarations — sounds principled and is
+worse in practice. proteinsmc's `STOP_INT = UNKNOWN_AA_INT = 21` is a fact about a live consumer.
+If the library refuses to express it, proteinsmc cannot declare its alphabet at all, and stays
+outside the system that exists to make its convention explicit. Worse, it would have to keep its
+own declaration, which is an eighth site.
+
+The library's job is to make conventions **declarable and inspectable**, not to certify them as
+good. So it ships, `conflated_specials` reports `{{UNKNOWN, STOP}}`, and `lint()` warns — which is
+strictly more visibility than the status quo, where the conflation is three consecutive
+assignments in `constants.py:115-117` that nothing flags.
+
+Corollary for `lint()`: it returns warnings and never raises. A declaration that lints dirty is
+still a valid declaration. Refusing to load it would recreate the pressure to declare something
+untrue.
