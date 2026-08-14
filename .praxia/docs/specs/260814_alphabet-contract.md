@@ -346,6 +346,32 @@ and gap-last canonical. Both are this library's own bug class, in production sou
 asserted as-is so they are visible and cannot drift further; fixing them changes numbers and
 needs its own pass with its own evidence.
 
+### Phase 1 status: defects fixed 2026-08-14; runtime migration BLOCKED on the kernel
+
+asr commit `2058572`. Investigation before fixing changed the diagnosis, and **two of the three
+recorded defects were not what §D4's status note claimed**:
+
+| recorded | actual |
+|---|---|
+| `POTTS_TO_CANONICAL` identity is wrong | **Confirmed.** Fixed to `[1..20, 0]`. Blast radius **zero** — `remap_from_potts` had no callers, so no published number moved. Latent, not live. |
+| gap/X conflation is a live defect whose fix changes numbers | **Wrong on both counts.** Both maps are the **identity**, since `CANONICAL_ALPHABET[:20] == MPNN_ALPHABET[:20]`. Only index 20 differs, and in *meaning* not position. ProteinMPNN has no gap state, so no reindexing can fix it. Remedy is documentation, now in `asr/alphabet.py`. |
+| *(not previously recorded)* | **New:** `mtt_training_pipeline.py:663` applied `CANONICAL_TO_MPNN` to logits *returned by* the MPNN scorer — the wrong direction. Invisible because both maps are the identity, but armed: correcting either map would have made it silently wrong. Now `remap_from_mpnn`. |
+
+The lesson is the one the contract already argues for elsewhere: a claim about an ordering that
+has not been traced to its consumers is not evidence. The tripwires were right that something
+was wrong; they were not evidence about *what*.
+
+**Blocker for the rest of Phase 1.** "Runtime migration" means asr calling this library's
+conversion kernel — `perm`, `relation`, `Policy`, `convert`. **None of it exists**: D5 cut
+`registry.py` and deferred `asset.py`, and v0.1 shipped only the `Alphabet` value type and
+`known.py`. So the remaining migration is gated on building the kernel specified in
+`260814_alphabet-api-surface.md` §3.4-3.5, with the architecture-review corrections already
+folded in (`PolicySpec` per `SpecialKind`, `MaskedPerm` instead of an in-band `-1`, and the
+`reindex` axis-length precondition).
+
+Until then asr keeps its own hand-rolled arrays — now correct, documented, and pinned by
+`tests/test_alphabet_maps.py` and the inverted conformance tests.
+
 **D2 — asr migrates first, then reassess.** *(Sequencing superseded by D4; the reasoning below
 still governs Phase 1, the runtime migration.)* asr is both the source of the contract (F5) and
 where 7 of the 29 declaration sites live, including all four sentinel conventions and the only
