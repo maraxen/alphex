@@ -361,16 +361,22 @@ The lesson is the one the contract already argues for elsewhere: a claim about a
 has not been traced to its consumers is not evidence. The tripwires were right that something
 was wrong; they were not evidence about *what*.
 
-**Blocker for the rest of Phase 1.** "Runtime migration" means asr calling this library's
-conversion kernel — `perm`, `relation`, `Policy`, `convert`. **None of it exists**: D5 cut
-`registry.py` and deferred `asset.py`, and v0.1 shipped only the `Alphabet` value type and
-`known.py`. So the remaining migration is gated on building the kernel specified in
-`260814_alphabet-api-surface.md` §3.4-3.5, with the architecture-review corrections already
-folded in (`PolicySpec` per `SpecialKind`, `MaskedPerm` instead of an in-band `-1`, and the
-`reindex` axis-length precondition).
+**Blocker CLEARED 2026-08-14: the kernel is built.** `relation.py` and `convert.py` implement
+`relation`, `perm`, `convert` and `reindex` per `260814_alphabet-api-surface.md` §3.3-3.5, with
+the architecture-review corrections folded in (`PolicySpec` per `SpecialKind`, `MaskedPerm`
+instead of an in-band `-1`, the `reindex` axis-length precondition). 49 kernel tests; 79 in the
+library; the 28 conformance tests across the four consumer repos still pass unchanged.
 
-Until then asr keeps its own hand-rolled arrays — now correct, documented, and pinned by
-`tests/test_alphabet_maps.py` and the inverted conformance tests.
+Implementing it forced five corrections to the spec and added two error cases it had not named —
+see `260814_alphabet-api-surface.md` §11. The load-bearing one for this document is **C6**: an
+`INCOMPATIBLE` relation is now "some source residue is absent from the destination", not "no
+shared symbols", because `MPNN_20` and `DNA_4` share `A/C/G/T` and the original criterion would
+have let a protein→DNA conversion through to a policy.
+
+**Remaining for Phase 1:** asr still uses its own hand-rolled arrays — now correct, documented,
+and pinned by `tests/test_alphabet_maps.py` and the inverted conformance tests. Replacing them
+with `perm(...)` calls is the next step, and is no longer blocked; it is now a question of
+whether asr should take a runtime dependency (D4 currently says dev-only).
 
 **D2 — asr migrates first, then reassess.** *(Sequencing superseded by D4; the reasoning below
 still governs Phase 1, the runtime migration.)* asr is both the source of the contract (F5) and

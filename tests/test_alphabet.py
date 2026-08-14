@@ -23,7 +23,7 @@ def test_symbols_and_offset_place_residues_in_the_index_space() -> None:
     name="toy_esm",
     citation="toy",
     offset=4,
-    size=8,
+    declared_size=8,
     specials={
       SpecialKind.BOS: 0,
       SpecialKind.PAD: 1,
@@ -72,7 +72,13 @@ def test_declaration_requires_totality() -> None:
   of the shipped bug. Index 4 here is nothing at all, so the declaration is invalid.
   """
   with pytest.raises(AlphabetDeclarationError, match="unaccounted"):
-    Alphabet(symbols="ACDE", name="bad", citation="x", size=6, specials={SpecialKind.GAP: 5})
+    Alphabet(
+      symbols="ACDE",
+      name="bad",
+      citation="x",
+      declared_size=6,
+      specials={SpecialKind.GAP: 5},
+    )
 
 
 def test_declaration_accepts_explicit_unclaimed() -> None:
@@ -81,7 +87,7 @@ def test_declaration_accepts_explicit_unclaimed() -> None:
     symbols="ACDE",
     name="ok",
     citation="x",
-    size=6,
+    declared_size=6,
     specials={SpecialKind.GAP: 5},
     unclaimed=frozenset({4}),
   )
@@ -122,7 +128,7 @@ def test_encode_decode_round_trip() -> None:
     name="x",
     citation="x",
     offset=2,
-    size=6,
+    declared_size=6,
     specials={SpecialKind.BOS: 0, SpecialKind.EOS: 1},
   )
   codes = a.encode("CAD")

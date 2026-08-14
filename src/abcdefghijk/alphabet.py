@@ -59,8 +59,28 @@ class Alphabet:
   offset: int = 0
   specials: Mapping[SpecialKind, int] = dataclasses.field(default_factory=dict)
   unclaimed: frozenset[int] = frozenset()
-  size: int | None = None
+
+  declared_size: int | None = None
+  """Width of the index space, when the source states one. `None` infers the smallest that fits.
+
+  Read `size` instead: it is always an `int`. The two are separate names because they are
+  separate facts -- what the source wrote, and how wide the alphabet actually is. ESM is the one
+  shipped declaration that states a width (33) exceeding what its own indices imply.
+  """
+
   padded_size: int | None = None
+  """Width of a model's output axis when it exceeds `size`. `None` when there is no padding."""
+
+  @property
+  def size(self) -> int:
+    """Width of the index space. Always an `int`; never `None`, whatever was declared."""
+    if self.declared_size is not None:
+      return self.declared_size
+    return max([*self._residue_indices, *self.specials.values(), *self.unclaimed]) + 1
+
+  @property
+  def _residue_indices(self) -> range:
+    return range(self.offset, self.offset + len(self.symbols))
 
   def __post_init__(self) -> None:
     """Validate the declaration. Every failure here is a bug caught before it can propagate."""
@@ -78,17 +98,17 @@ class Alphabet:
       msg += "how an ordering loses track of where it came from"
       raise AlphabetDeclarationError(msg)
 
-    residue_indices = frozenset(range(self.offset, self.offset + len(self.symbols)))
+    residue_indices = frozenset(self._residue_indices)
     special_indices = frozenset(self.specials.values())
-
-    implied = max([*residue_indices, *special_indices, *self.unclaimed]) + 1
-    resolved: int = implied if self.size is None else self.size
-    object.__setattr__(self, "size", resolved)
+    resolved = self.size
 
     if collide := residue_indices & special_indices:
       msg = f"special index collides with a residue index: {sorted(collide)}"
       raise AlphabetDeclarationError(msg)
-    if out_of_range := {i for i in special_indices | self.unclaimed if not 0 <= i < resolved}:
+    out_of_range = {
+      i for i in residue_indices | special_indices | self.unclaimed if not 0 <= i < resolved
+    }
+    if out_of_range:
       msg = f"index outside [0, {resolved}): {sorted(out_of_range)}"
       raise AlphabetDeclarationError(msg)
 

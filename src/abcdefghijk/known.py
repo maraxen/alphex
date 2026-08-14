@@ -139,7 +139,7 @@ ESM_C = Alphabet(
   # here (we describe the vocabulary, not the tokenizer). 25-28 are B, U, Z, O -- degenerate
   # and nonstandard symbols, refused in v0.1 and admitted in v0.2 as `aliases`.
   unclaimed=frozenset({3, 25, 26, 27, 28}),
-  size=33,
+  declared_size=33,
   padded_size=64,
 )
 

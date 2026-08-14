@@ -10,12 +10,14 @@ The unit of value here is the **declaration**, not the encoding. See
 `260814_alphabet-api-surface.md` for the shape.
 
 v0.1 is Phase 0 (decision D4): the `Alphabet` value type and the shipped declarations, for
-**dev-dependency-only conformance testing** in each consumer repo. No conversion kernel, no
-asset layer, and no plugin registry (D5) yet.
+**dev-dependency-only conformance testing** in each consumer repo, plus the Phase 1 conversion
+kernel (`relation`, `perm`, `convert`, `reindex`). No asset layer and no plugin registry (D5)
+yet.
 """
 
 from abcdefghijk import known
 from abcdefghijk.alphabet import Alphabet, SpecialKind
+from abcdefghijk.convert import MaskedPerm, Policy, PolicySpec, convert, perm, reindex
 from abcdefghijk.errors import (
   AliasCollisionError,
   AlphabetDeclarationError,
@@ -29,6 +31,7 @@ from abcdefghijk.errors import (
   UnmappableSymbolError,
   UnsupportedFeatureError,
 )
+from abcdefghijk.relation import Relation, RelationKind, relation
 
 __all__ = [
   "AliasCollisionError",
@@ -37,12 +40,21 @@ __all__ = [
   "AlphabetError",
   "DegenerateSymbolError",
   "IncompatibleAlphabetError",
+  "MaskedPerm",
   "MissingSpecialError",
   "MultiCharTokenError",
   "NonStandardResidueError",
+  "Policy",
+  "PolicySpec",
   "ReducedAlphabetError",
+  "Relation",
+  "RelationKind",
   "SpecialKind",
   "UnmappableSymbolError",
   "UnsupportedFeatureError",
+  "convert",
   "known",
+  "perm",
+  "reindex",
+  "relation",
 ]

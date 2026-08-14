@@ -605,3 +605,79 @@ assignments in `constants.py:115-117` that nothing flags.
 Corollary for `lint()`: it returns warnings and never raises. A declaration that lints dirty is
 still a valid declaration. Refusing to load it would recreate the pressure to declare something
 untrue.
+
+---
+
+## 11. Corrections from implementing the kernel (2026-08-14)
+
+The kernel in §3.3-3.5 is now implemented (`relation.py`, `convert.py`, 49 tests). Five
+statements above did not survive contact with the tests. Each is corrected here rather than
+edited in place, so the reasoning stays auditable.
+
+**C6 — `INCOMPATIBLE` is "some source residue is absent", not "no shared symbols."**
+
+§3.3 glossed `INCOMPATIBLE` as *"no shared symbols"*. That criterion does not do the job it was
+written for: `MPNN_20` and `DNA_4` share `A`, `C`, `G` and `T`, so a protein→DNA conversion would
+have been classified as merely lossy and handed to a policy. Worse, `DNA_4.symbols` is a strict
+*subset* of `MPNN_20.symbols`, so a subset test fails too.
+
+The implemented rule: **every source residue must exist in the destination.** A missing residue
+is not a policy question — `policy` chooses how to handle missing *specials*, not whether the
+conversion means anything. This is the same commitment `ReducedAlphabetError` already makes
+("this library only permutes, never merges"), now enforced at the classifier. It is strict: no
+declaration in `known.py` narrows the residue set, so it costs nothing today, and a future
+alphabet that legitimately does will need an explicit merge story rather than a silent drop.
+
+**C7 — the `None` policy key is the fallback for *meaningless* indices, not "residues dst lacks."**
+
+§3.4 documented `None` as *"the fallback for residues that dst lacks."* Under C6 that case does
+not reach a policy at all, so as written the key was unreachable. Implemented meaning: `None`
+covers (a) a source index that denotes nothing — an `unclaimed` index, or padding beyond `size`
+on an axis of length `padded_size` — and (b) any `SpecialKind` a mapping does not name
+explicitly. Both uses appear in the tests. A mapping that names neither the kind nor `None`
+falls back to `Policy.RAISE`, which fails loudly rather than guessing.
+
+**C8 — padding beyond `size` cannot be "declared `unclaimed`."**
+
+§3.4's `reindex` note requires that when an axis matches `padded_size`, *"the trailing block
+beyond `size` must be declared `unclaimed`"*. That is unsatisfiable: `Alphabet.__post_init__`
+validates `0 <= i < size` for every `unclaimed` entry, so an index at or beyond `size` cannot be
+declared at all. Implemented behaviour: indices in `[size, padded_size)` are padding, denote
+nothing by construction, and resolve under the `None` policy exactly like an `unclaimed` index —
+no declaration required, and none possible.
+
+**C9 — `Alphabet.size` is now a property; the constructor input is `declared_size`.**
+
+`size: int | None = None` with `__post_init__` writing the resolved value made `size` type as
+`int | None` at every call site. The kernel is the first real consumer and it made this
+immediately expensive: `int | None` propagated into table lengths, range checks and dtype
+capacity comparisons, none of which can accept `None`. Split into `declared_size: int | None`
+(what the source states; only `ESM_C` states one) and a computed `size -> int` property. Two
+names because they are two facts, in the same way `padded_size` is a third. `__post_init__` also
+now range-checks *residue* indices against `size`, which it previously checked only for specials
+and `unclaimed` — a declared size smaller than the residue block would have passed.
+
+**C10 — losslessness is a property of a direction, not of a pair.**
+
+The test matrix's `LOSSLESS_PAIRS` was used for both letter-preservation and round-tripping.
+`MPNN_20 -> ESM_C` is injective but not surjective — ESM declares eight specials a bare q=20
+alphabet cannot represent — so the return trip is lossy and `Policy.RAISE` correctly refuses it.
+Split into `LOSSLESS_PAIRS` (directional) and `INVERTIBLE_PAIRS` (both ways), with the asymmetry
+asserted rather than left in a comment. Conflating the two is how a "round-trips fine" claim gets
+made about a conversion that only round-trips one way.
+
+### Behaviour added beyond the spec
+
+Two failure modes the spec did not name, both silent-corruption shaped, are now errors:
+
+* **A conflated source index that resolves two ways.** `MPNN_GAP_X_STOP_22` puts `UNKNOWN` and
+  `STOP` both at 21; `ESM_C` separates them (24 and 29). One source index cannot carry two
+  destinations, and picking either by dict-iteration order would be the shipped bug's exact
+  shape. Raises `UnmappableSymbolError`.
+* **A `reindex` scatter where two source positions land on one destination index.** Many-to-one
+  is legitimate for `perm`/`convert` (relabelling), but a scatter would overwrite one row with
+  another and return successfully. Raises `UnmappableSymbolError`.
+
+`reindex` also takes `fill` (default `0.0`) for destination positions nothing lands on. The
+default is right for a probability vector and **wrong in log space**; the docstring says so,
+because a zero silently meaning "certain" is precisely this library's failure genre.
