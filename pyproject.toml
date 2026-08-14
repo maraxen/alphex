@@ -1,0 +1,62 @@
+[project]
+name = "abcdefghijk"
+version = "0.1.0"
+description = "Amino-acid alphabet orderings and letter-preserving conversions between them."
+readme = "README.md"
+authors = [
+    { name = "Marielle Russo", email = "67157875+maraxen@users.noreply.github.com" }
+]
+requires-python = ">=3.11"
+
+# INTENTIONALLY MINIMAL -- see CLAUDE.md "The dependency contract".
+#
+# numpy is the only runtime dependency, and even that is a deliberate ceiling rather
+# than a starting point. This package exists because the alternative homes for it
+# (proxide, aminx, proteinsmc) all carry a base install that a consumer needing only
+# alphabet conversions cannot afford: proxide's base pulls jax, jax-md, hydride, grain
+# and array_record on top of a maturin-built Rust extension. Optional-dependency
+# extras cannot fix that -- extras only ADD to a base install, they never subtract
+# from it -- so the only way to make "just the alphabets" cheap is for it to be its
+# own distribution. That is this one.
+#
+# Do NOT add jax here. Consumers that want jnp-backed permutation tables should get
+# them by passing this package's plain integer arrays into their own jnp.asarray, or
+# via a `jax` extra that stays strictly optional and lazily imported.
+dependencies = [
+    "numpy",
+]
+
+[project.optional-dependencies]
+# Reserved. Anything added here must be lazily imported at the call site with an
+# actionable ImportError, never at module import time.
+jax = ["jax"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "hypothesis>=6",
+    "ruff>=0.14",
+    "ty>=0.0.1a21",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.21,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+indent-width = 2
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "D203",
+  "D213",
+  "COM812",
+  "TRY003",
+  "EM101", "EM102",
+  "CPY001",  # no copyright headers anywhere in this ecosystem
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

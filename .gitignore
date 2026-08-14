@@ -1,0 +1,14 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# praxia local caches -- never commit (analyzer db is machine-local, churns constantly)
+.praxia/cache/
+.fastembed_cache/
