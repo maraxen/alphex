@@ -8,12 +8,25 @@ A zero-to-one-dependency library of **amino-acid alphabet orderings and letter-p
 conversions between them**. Nothing else belongs here — no scoring, no I/O, no structure
 handling, no model code.
 
-**`alphex` is a placeholder name** (chosen 2026-08-14 to avoid bikeshedding at
-scaffold time). Renaming is expected before any consumer depends on it; do not build
-anything that makes the name load-bearing (no entry points, no CLI, no env-var prefixes).
+**The name is now load-bearing.** It was a placeholder (`abcdefghijk`) through 2026-08-14,
+under a rule forbidding entry points, a CLI, or env-var prefixes built on it. That rule is
+**spent**: renamed to `alphex` and published to PyPI as `0.1.0a1` on 2026-08-15, with four
+repos (asr, proteinsmc, aminx, proxide) depending on it by name from the registry. Renaming
+now means a new PyPI project and a coordinated bump across all four — treat it as a breaking
+change, not a tidy-up.
 
-**Status: scaffold only.** `uv init` + `praxia init` have run. No API is implemented yet.
-Do not implement the API without checking the design below is still the agreed one.
+The one thing still *deliberately* decoupled from the distribution name is the entry-point
+group namespace, `alphabet_contract.v1.*`. It names the contract rather than the package
+implementing it, and that decoupling is what made the 2026-08-14 rename free. Do not
+"simplify" it to match the package name.
+
+**Status: released, alpha.** The `Alphabet` value type, the shipped declarations, and the
+conversion kernel (`relation`, `perm`, `convert`, `reindex`) are implemented and tested.
+Not implemented: aliases for degenerate and non-standard residues (`B`, `Z`, `J`, `U`, `O`),
+the substitution/rate-matrix asset layer, and the plugin registry — all v0.2, all recorded
+in the specs. The base install is numpy-only and must stay that way; the CLI and MCP
+surfaces live behind the `cli` / `mcp` extras and are imported by neither `__init__.py` nor
+each other's module.
 
 ## Why it exists
 

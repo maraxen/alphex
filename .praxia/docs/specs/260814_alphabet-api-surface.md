@@ -13,6 +13,11 @@ Implements the contract in `260814_alphabet-contract.md` (that doc's §2 contrac
 design, §5 decisions D1-D3, and §8 feature census / abstraction ceiling). Read it first; this
 doc does not restate the reasoning, only the shape.
 
+> **Status, 2026-08-15: implemented and released** as `alphex` `0.1.0a1` on PyPI. The sentence
+> below was true when this doc was written and is kept because the corrections in §11 are only
+> legible against it — several of them are the difference between the shape agreed here and what
+> survived contact with the tests.
+
 **Nothing here is implemented.** This is the shape to agree before writing code.
 
 ---

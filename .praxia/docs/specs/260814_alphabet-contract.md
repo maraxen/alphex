@@ -272,6 +272,14 @@ The `PROXIDE_ORDER` provenance gap closes because registration requires a declar
 the thing that variable name was standing in for. `jtt_model.py`'s sha256 + parity-test
 discipline stays where it already works rather than being generalised speculatively.
 
+> **D4 completed and partly superseded, 2026-08-15.** Its Phase 0 shipped as written and did its
+> job. Its "never to `dependencies`" clause was always scoped to Phase 0 and is now spent for
+> **asr**, which took a genuine runtime edge on 2026-08-14 and builds its permutation tables with
+> `perm()`. The other three (proteinsmc, aminx, proxide) remain dev-only, exactly as D4 intended
+> — nothing under their `src/` imports the library, so the ecosystem partition is still
+> unaffected. All four now resolve `alphex>=0.1.0a1` from PyPI rather than a path source, which
+> also removed asr's requirement to `myxcel push alphex` before every cluster run.
+
 **D4 — (2026-08-14, supersedes D2's sequencing) Phase 0 is a dev-dependency-only conformance
 pass across all five repos, before any runtime migration.**
 
