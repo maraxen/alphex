@@ -52,11 +52,15 @@ jobs:
           }
 
       - name: Run the suite before publishing anything
+        # Extras repeated on every `uv run` for the reason documented in ci.yml: a bare
+        # `uv run` may re-resolve the environment and drop them. This job happens to have
+        # survived that (no matrix, so nothing disagreed with .python-version) but the
+        # shape was fragile and the failure mode is silent-until-it-isn't.
         run: |
           uv sync --extra cli --extra mcp
-          uv run ruff check src/ tests/ scripts/
-          uv run ty check src/alphex
-          uv run pytest -q
+          uv run --extra cli --extra mcp ruff check src/ tests/ scripts/
+          uv run --extra cli --extra mcp ty check src/alphex
+          uv run --extra cli --extra mcp pytest -q
 
       - name: Build
         run: uv build

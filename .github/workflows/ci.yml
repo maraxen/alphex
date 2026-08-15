@@ -13,6 +13,14 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
+    env:
+      # Job-level, NOT a --python flag on the sync step. The repo has a .python-version
+      # pinning 3.11; with only the sync step told about the matrix version, every later
+      # bare `uv run` saw the disagreement, RECREATED the environment at 3.11, and dropped
+      # the extras in the process -- so `ty` hit an env with no cyclopts and no fastmcp and
+      # failed on 3.12/3.13 while 3.11 passed. Setting it here makes every uv invocation
+      # agree, and the extras are repeated per-step so no step depends on sync state.
+      UV_PYTHON: ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -25,13 +33,18 @@ jobs:
         # Extras included so `alphex.cli` and `alphex.mcp` are type-checked rather than skipped.
         # cisternal is still absent below 3.13 (its own floor, marker-gated in the `mcp` extra);
         # that one import carries a targeted suppression in mcp.py.
-        run: uv sync --extra cli --extra mcp --python ${{ matrix.python-version }}
+        run: uv sync --extra cli --extra mcp
 
       - name: Lint
-        run: uv run ruff check src/ tests/ scripts/
+        run: uv run --extra cli --extra mcp ruff check src/ tests/ scripts/
 
       - name: Type-check
-        run: uv run ty check src/alphex
+        run: uv run --extra cli --extra mcp ty check src/alphex
 
       - name: Test
-        run: uv run pytest -q
+        run: uv run --extra cli --extra mcp pytest -q
+
+      - name: The CLI actually runs
+        # Cheap end-to-end check that the console script is wired and the extra is enough.
+        # Every earlier step passes with a broken entry point.
+        run: uv run --extra cli alphex relation MPNN_20 AF_20
