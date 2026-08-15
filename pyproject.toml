@@ -117,5 +117,21 @@ ignore = [
 # non-obvious -- the ones guarding a specific past defect -- carry a docstring anyway.
 "tests/*.py" = ["S101", "PLR2004", "INP001", "D103"]
 
+[tool.ty.rules]
+# Two rules disabled, both for the same underlying cause: `cisternal` is an OPTIONAL,
+# marker-gated dependency (Python >=3.13), so its presence differs across the CI matrix and
+# no single source-level state is correct on all three interpreters.
+#
+# cisternal assembles its public surface dynamically, so ty resolves `cisternal.wire` to
+# `object` and reports the call as non-callable. bathos hit the identical wall on
+# `app.run()` and demoted the same rule. Scoped by the fact that this library has exactly
+# one call into an untyped third-party object; if that stops being true, narrow this.
+call-non-callable = "ignore"
+# The `ty: ignore[unresolved-import]` on the cisternal import is REQUIRED on 3.11/3.12,
+# where the marker excludes it, and UNUSED on 3.13+, where it installs. Disabling the
+# meta-rule is the only state that holds across the matrix; the alternative is a green
+# 3.13 and a red 3.11, or vice versa.
+unused-ignore-comment = "ignore"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
