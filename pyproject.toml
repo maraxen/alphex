@@ -67,7 +67,7 @@ cli = ["cyclopts>=3"]
 # Consequence, stated rather than discovered: on 3.11/3.12 the `mcp` extra installs fastmcp
 # but NOT cisternal, so `alphex-mcp` exits with the message in alphex/mcp.py naming the 3.13
 # floor. The CLI has no such floor and works everywhere.
-mcp = ["fastmcp>=2", "cisternal>=0.1.1a9; python_version >= '3.13'"]
+mcp = ["fastmcp>=2", "cisternal>=0.1.1a11; python_version >= '3.13'"]
 agent = ["alphex[cli,mcp]"]
 
 [project.scripts]
@@ -83,7 +83,7 @@ dev = [
 ]
 
 [tool.uv]
-# cisternal>=0.1.1a9 pins fastmcp==4.0.0a2 (a pre-release), so the 3.13+ fork of the lock
+# cisternal>=0.1.1a11 pins fastmcp==4.0.0a2 (a pre-release), so the 3.13+ fork of the lock
 # needs pre-releases allowed; allow here so `uv lock`/`uv sync` work without a flag. The
 # 3.11/3.12 forks carry no cisternal and stay on fastmcp 3.4.x.
 prerelease = "allow"
