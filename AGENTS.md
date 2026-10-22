@@ -20,7 +20,7 @@ group namespace, `alphabet_contract.v1.*`. It names the contract rather than the
 implementing it, and that decoupling is what made the 2026-08-14 rename free. Do not
 "simplify" it to match the package name.
 
-**Status: released, alpha.** The `Alphabet` value type, the shipped declarations, and the
+**Status: released, stable (0.1.0, 2026-10-22).** The `Alphabet` value type, the shipped declarations, and the
 conversion kernel (`relation`, `perm`, `convert`, `reindex`) are implemented and tested.
 Not implemented: aliases for degenerate and non-standard residues (`B`, `Z`, `J`, `U`, `O`),
 the substitution/rate-matrix asset layer, and the plugin registry — all v0.2, all recorded

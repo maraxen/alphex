@@ -1,9 +1,10 @@
 [project]
 name = "alphex"
-# 0.1.0a1, not 0.1.0. The kernel is specced and tested, but the contract records real v0.2
-# gaps -- degenerate and non-standard residue aliases (B/Z/J/U/O), the asset layer, the plugin
-# registry -- and an alpha says so rather than implying they were considered and declined.
-version = "0.1.0a1"
+# 0.1.0 is the stable contract for the kernel: `Alphabet`, the shipped declarations, and
+# `relation` / `perm` / `convert` / `reindex`. The v0.2 items -- degenerate and non-standard
+# residue aliases (B/Z/J/U/O), the asset layer, the plugin registry -- are additive and not
+# implemented in 0.1.0.
+version = "0.1.0"
 description = "Biological sequence alphabet orderings and letter-preserving conversions between them."
 readme = "README.md"
 license = "MIT"
@@ -14,7 +15,7 @@ authors = [
 requires-python = ">=3.11"
 keywords = ["bioinformatics", "protein", "alphabet", "tokenizer", "esm", "proteinmpnn", "alphafold"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
