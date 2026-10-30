@@ -131,8 +131,6 @@ uv run ruff check src/ --fix
 uv run ty check src/alphex
 ```
 
-Use `uv run python`, never bare `python`.
-
 ## Testing expectation
 
 This package's whole value is that it cannot silently permute. Test accordingly:

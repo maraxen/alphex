@@ -25,7 +25,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-# INTENTIONALLY MINIMAL -- see CLAUDE.md "The dependency contract".
+# INTENTIONALLY MINIMAL -- see AGENTS.md "The dependency contract".
 #
 # numpy is the only runtime dependency, and even that is a deliberate ceiling rather
 # than a starting point. This package exists because the alternative homes for it
