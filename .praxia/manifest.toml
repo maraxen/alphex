@@ -13,7 +13,7 @@ command = ["alphex-mcp"]
 
 [[plugin.skills]]
 name = "using-alphex"
-path = "../agent_assets/skills/using-alphex/SKILL.md"
+path = "agent_assets/skills/using-alphex/SKILL.md"
 # Triggered by the vocabulary of the mistake, not just the package name: an agent about to
 # hand-roll a table is exactly the case this skill needs to catch, and it will not be thinking
 # about alphex when it does.
@@ -36,7 +36,7 @@ triggers = [
 
 [[plugin.snippets]]
 name  = "alphex-rules"
-path  = "../agent_assets/snippets/rules.md"
+path  = "agent_assets/snippets/rules.md"
 scope = "project"
 # No `scope_detector` on purpose. The right condition is "this repo contains an ordering
 # literal", and the detector vocabulary cannot express it: praxia supports `glob:` (a file
